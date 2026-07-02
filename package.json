@@ -1,0 +1,21 @@
+{
+  "name": "proyecto-invernadero",
+  "private": true,
+  "scripts": {
+    "dev": "docker compose -f docker-compose.dev.yml up",
+    "dev:build": "docker compose -f docker-compose.dev.yml up --build",
+    "dev:fresh": "docker compose -f docker-compose.dev.yml down -v && docker compose -f docker-compose.dev.yml up --build",
+    "dev:down": "docker compose -f docker-compose.dev.yml down",
+    "dev:logs": "docker compose -f docker-compose.dev.yml logs -f",
+    "dev:logs:frontend": "docker compose -f docker-compose.dev.yml logs -f frontend",
+    "dev:logs:backend": "docker compose -f docker-compose.dev.yml logs -f backend",
+    "dev:ps": "docker compose -f docker-compose.dev.yml ps",
+    "dev:restart:frontend": "docker compose -f docker-compose.dev.yml restart frontend",
+    "dev:restart:backend": "docker compose -f docker-compose.dev.yml restart backend",
+    "dev:rebuild:frontend": "docker compose -f docker-compose.dev.yml rm -sf frontend && docker compose -f docker-compose.dev.yml up --build frontend",
+    "dev:rebuild:backend": "docker compose -f docker-compose.dev.yml rm -sf backend && docker compose -f docker-compose.dev.yml up --build backend",
+    "prod": "docker compose up --build -d",
+    "prod:down": "docker compose down",
+    "prod:logs": "docker compose logs -f"
+  }
+}
