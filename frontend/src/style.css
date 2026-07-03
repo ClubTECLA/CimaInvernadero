@@ -1,17 +1,26 @@
+:root {
+  --verde-principal: #007200;
+  --verde-principal-alfa: #00720082;
+  --verde-secundario: #004b23;
+  --verde-claro: #4caf50;
+  --blanco: white;
+  --fondo: #dad7cd;
+  --gris-fondo: #d9d9d9;
+}
+
 body {
-  background-color: #dad7cd;
+  background-color: var(--fondo);
+  padding-top: 70px;
 }
 
 /* SECCIÓN: BARRA DE NAVEGACIÓN*/
 .sticky {
-  background-color: #007200e9;
+  background-color: var(--verde-principal-alfa);
   transition: all 0.3s ease-out 0s;
-  box-shadow: 0px 10px 10px 0px #00ff11;
-  backdrop-filter: blur(15px);
 }
 
 .navbar {
-  background-color: #007200;
+  background-color: var(--verde-principal);
   position: fixed;
   transition: all 0.3s ease-out 0s;
   padding: 0.3rem 2rem;
@@ -27,7 +36,7 @@ body {
 
 .navbar-toggler span {
   display: block;
-  background-color: #004b23;
+  background-color: var(--verde-secundario);
   height: 4px;
   width: 27px;
   margin-top: 5px;
@@ -75,7 +84,7 @@ body {
   .navbar {
     padding: 1rem 2rem;
     font-size: 1.4rem;
-    background-color: #007200;
+    background-color: var(--verde-principal);
   }
 
   .navbar-nav .nav-item a::after {
@@ -136,7 +145,7 @@ body {
   height: 3px;
   width: 100%;
   border-radius: 16px;
-  background-color: #004b23;
+  background-color: var(--verde-secundario);
   bottom: 8px;
   left: 0;
   transform: scaleX(0);
@@ -152,4 +161,67 @@ body {
 .navbar-nav .nav-item a:hover::after,
 .navbar-nav .nav-item a:hover::before {
   transform: scaleX(1);
+}
+
+/* SECCIÓN: INICIO - HOME*/
+.home-header {
+  padding-top: 40px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+
+.home-section {
+  position: relative;
+  padding-bottom: 30px;
+  padding-top: 50px;
+  margin-top: 50px;
+  background-color: var(--blanco);
+  border-radius: 1rem;
+  width: 70%;
+}
+
+.home-content {
+  padding: 0rem 0 2rem;
+}
+
+.heading {
+  font-size: 2em;
+  color: var(--verde-principal);
+}
+
+.home-content p {
+  font-size: 18px;
+}
+
+.home-secundary {
+  padding-bottom: 0;
+  text-align: left;
+}
+
+.invernadero-img {
+  border-radius: 1rem;
+  width: 80%;
+  height: 14rem;
+}
+
+.general-state {
+  color: var(--verde-principal);
+  font-weight: 400;
+  background-color: var(--gris-fondo);
+  border-radius: 2rem;
+  padding-left: 1em;
+  padding-right: 1em;
+  width: fit-content;
+}
+
+.point-state {
+  display: inline-block;
+  width: 0.6rem !important;
+  height: 0.6rem !important;
+  background-color: var(--verde-claro) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.18) !important;
+  margin-right: 0.4rem;
 }

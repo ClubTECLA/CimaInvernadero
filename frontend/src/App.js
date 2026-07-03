@@ -1,6 +1,7 @@
 import logo from "./logo.svg";
 import NavBar from "./components/Navbar";
 import Preloader from "./components/Pre";
+import Home from "./Inicio/Home";
 import {
   BrowserRouter as Router,
   Route,
@@ -27,6 +28,9 @@ function App() {
       <Preloader load={load} />
       <div className="App" id={load ? "no-scroll" : "scroll"}>
         <NavBar />
+        <Routes>
+          <Route path="/" element={<Home />} />
+        </Routes>
       </div>
     </Router>
   );
