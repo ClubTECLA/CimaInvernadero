@@ -347,6 +347,10 @@ body {
   background-color: var(--verde-principal);
 }
 
+.table-body td {
+  font-weight: 100;
+}
+
 .pagination-section {
   display: flex;
   justify-content: center;

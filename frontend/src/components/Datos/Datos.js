@@ -161,10 +161,11 @@ function Datos() {
                   <th>Dispositivo</th>
                   <th>Tipo de dato</th>
                   <th>Valor</th>
+                  <th>Zona</th>
                   <th>Fecha</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="table-body">
                 {cargando ? (
                   <tr>
                     <td colSpan={4} className="text-center">
@@ -185,6 +186,7 @@ function Datos() {
                       <td>
                         {l.dato} {l.unidad}
                       </td>
+                      <th>{l.zona}</th>
                       <td>{new Date(l.created_at).toLocaleString("es-MX")}</td>
                     </tr>
                   ))
