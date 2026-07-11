@@ -178,6 +178,7 @@ function Datos() {
           </Row>
         </Container>
 
+        {/* TABLA*/}
         <Container className="all-section data-page-section card-component">
           <div className="lecturas-title">
             <h2>Lecturas registradas</h2>
@@ -188,7 +189,7 @@ function Datos() {
               <thead className="table-head">
                 <tr>
                   <th>Dispositivo</th>
-                  <th>Tipo de dato</th>
+                  <th className="d-none d-md-table-cell">Tipo de dato</th>
                   <th>Valor</th>
                   <th>Zona</th>
                   <th>Fecha</th>
@@ -211,12 +212,20 @@ function Datos() {
                   lecturas.map((l) => (
                     <tr key={l.id}>
                       <td>{l.dispositivo}</td>
-                      <td>{l.tipo_dato}</td>
+                      <td className="d-none d-md-table-cell">{l.tipo_dato}</td>
                       <td>
                         {l.dato} {l.unidad}
                       </td>
-                      <th>{l.zona}</th>
-                      <td>{new Date(l.created_at).toLocaleString("es-MX")}</td>
+                      <td>{l.zona}</td>
+                      <td className="d-none d-md-table-cell">
+                        {new Date(l.created_at).toLocaleString("es-MX")}
+                      </td>
+                      <td className="d-md-none">
+                        {new Date(l.created_at).toLocaleTimeString("es-MX", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
                     </tr>
                   ))
                 )}

@@ -32,7 +32,7 @@ function NavBar() {
       <Container>
         <Navbar.Brand href="/" className="d-flex">
           <img src={logo} className="img-fluid logo" alt="brand" />
-          <p>Monitoreo de invernadero</p>
+          <p className="d-none d-md-inline">Monitoreo de invernadero</p>
         </Navbar.Brand>
         <Navbar.Toggle
           aria-controls="responsive-navbar-nav"

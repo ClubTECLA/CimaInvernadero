@@ -92,8 +92,8 @@ function Home() {
             <div className="lecturas-section">
               <div className="lectura-card temperatura">
                 <span className="lectura-label">
-                  <WiThermometer />
-                  Temperatura
+                  <WiThermometer className="lectura-icon" />
+                  <span className="d-none d-md-inline"> Temperatura </span>
                 </span>
                 <span
                   className="lectura-valor"
@@ -113,8 +113,8 @@ function Home() {
               </div>
               <div className="lectura-card humedad">
                 <span className="lectura-label">
-                  <WiHumidity />
-                  Humedad
+                  <WiHumidity className="lectura-icon" />
+                  <span className="d-none d-md-inline"> Humedad </span>
                 </span>
                 <span
                   className="lectura-valor"
@@ -134,8 +134,8 @@ function Home() {
               </div>
               <div className="lectura-card vpd">
                 <span className="lectura-label">
-                  <WiSmog />
-                  VPD
+                  <WiSmog className="lectura-icon" />
+                  <span className="d-none d-md-inline"> VPD </span>
                 </span>
                 <span
                   className="lectura-valor"
