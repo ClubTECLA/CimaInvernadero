@@ -451,6 +451,14 @@ h2 {
   font-weight: 400;
 }
 
+.dispositivo-img {
+  width: 100%;
+  max-width: 200px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 0.8rem;
+}
+
 .estado-badge {
   border-radius: 2rem;
   padding: 0.2rem 0.8rem;
@@ -476,6 +484,30 @@ h2 {
 .estado-fallando {
   background-color: #f8d7da;
   color: #721c24;
+}
+
+.actual-display {
+  padding: 2rem 0 2rem 1rem;
+}
+
+.actual-display-info > * {
+  margin: 1.5rem 0;
+}
+
+.dispositivo-button {
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  color: #ffffff;
+  border-color: transparent;
+  margin-right: 1rem;
+}
+
+.editar-button {
+  background-color: #ffc477;
+}
+
+.eliminar-button {
+  background-color: #fe1a00;
 }
 
 /* SECCIÓN: FOOTER */
