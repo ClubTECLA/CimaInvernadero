@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
+
 import { AiFillEdit, AiFillDelete } from "react-icons/ai";
 
 import defaultImg from "../../Assets/dispositivo-default.png";
@@ -55,7 +56,6 @@ function Dispositivos() {
                 />
               </Col>
               <Col>
-                {" "}
                 <div className="actual-display-info">
                   <span
                     className={`estado-badge ${estadoClases[display?.estado]}`}
@@ -85,6 +85,31 @@ function Dispositivos() {
           ) : (
             <p>Cargando dispositivo...</p>
           )}
+        </Container>
+        <Container className="dispositivos-list-section">
+          <Row>
+            <h2>Lista de dispositivos</h2>
+          </Row>
+          <Row xs={1} md={2} lg={5} className="g-3">
+            {dispositivos.map((d) => (
+              <Col key={d.id}>
+                <div
+                  className="dispositivo-card card-component"
+                  onClick={() => setDisplay(d)}
+                >
+                  <img
+                    src={d?.image_path || defaultImg}
+                    alt={d?.nombre}
+                    className="dispositivo-img-list"
+                  />
+                  <span style={{ fontWeight: "bold" }}>{d.nombre}</span>
+                  <span className={`estado-badge ${estadoClases[d?.estado]}`}>
+                    {d.estado}
+                  </span>
+                </div>
+              </Col>
+            ))}
+          </Row>
         </Container>
       </Container>
     </section>
