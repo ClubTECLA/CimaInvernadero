@@ -31,6 +31,30 @@ function Dispositivos() {
       });
   }
 
+  async function handleEliminar() {
+    const confirmado = window.confirm(
+      `¿Estás seguro de que deseas eliminar "${display.nombre}"? Esta acción no se puede deshacer.`,
+    );
+
+    if (!confirmado) return;
+
+    try {
+      const res = await fetch(`/api/dispositivos/${display.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const datos = await res.json();
+        alert(datos.error);
+        return;
+      }
+
+      handleGuardado(); // recarga la lista
+    } catch (error) {
+      alert("Error al eliminar el dispositivo");
+    }
+  }
+
   useEffect(() => {
     fetch("/api/dispositivos")
       .then((res) => res.json())
@@ -52,7 +76,6 @@ function Dispositivos() {
                 monitoreo y control del invernadero
               </p>
             </Col>
-            {/* TODO: Agregar funcionalidad de boton */}
             <Col xs="auto" className="text-end">
               <button onClick={() => setMostrarForm(true)}>
                 + Registrar dispositivo
@@ -85,7 +108,6 @@ function Dispositivos() {
                 </div>
               </Col>
               <Col md="auto">
-                {/* TODO: Agregar funcionalidad de boton */}
                 <button
                   className="dispositivo-button editar-button"
                   onClick={() => {
@@ -97,7 +119,10 @@ function Dispositivos() {
                   Editar
                 </button>
                 {/* TODO: Agregar funcionalidad de boton */}
-                <button className="dispositivo-button eliminar-button">
+                <button
+                  className="dispositivo-button eliminar-button"
+                  onClick={handleEliminar}
+                >
                   <AiFillDelete />
                   Eliminar
                 </button>
