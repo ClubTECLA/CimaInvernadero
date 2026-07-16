@@ -105,10 +105,20 @@ function Dispositivos() {
                   >
                     {display?.estado}
                   </span>
-                  <h2>{display?.nombre}</h2>
+                  <div>
+                    <h2>{display?.nombre}</h2>
+                    <h6>{display?.tipo_dispositivo}</h6>
+                  </div>
                   <p>{display?.descripcion}</p>
                   <p>
                     <strong>Ubicacion: </strong> {display?.zona}
+                    <br />
+                    <strong>Largo: </strong> {display?.largo}
+                    {"m "}
+                    <strong>Ancho: </strong> {display?.ancho}
+                    {"m "}
+                    <strong>Altura: </strong> {display?.altura}
+                    {"m"}
                   </p>
                 </div>
               </Col>
