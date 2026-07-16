@@ -84,7 +84,7 @@ router.post("/", async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    if (specs_id !== undefined) {
+    if (specs_id !== undefined && specs_id !== null) {
       const [especificaciones] = await connection.query(
         "SELECT id FROM especificaciones WHERE id = ?",
         [specs_id],
@@ -259,6 +259,7 @@ router.delete("/:id", async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: `Dispositivo ${id} no encontrado` });
     }
+
     res.json({ message: `Dispositivo ${id} eliminado correctamente` });
   } catch (error) {
     console.error("Error al eliminar dispositivo:", error.message);

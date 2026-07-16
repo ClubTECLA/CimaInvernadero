@@ -3,6 +3,8 @@ import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 
+import DispositivosForm from "./DispositivoForm";
+
 import { AiFillEdit, AiFillDelete } from "react-icons/ai";
 
 import defaultImg from "../../Assets/dispositivo-default.png";
@@ -17,6 +19,17 @@ const estadoClases = {
 function Dispositivos() {
   const [display, setDisplay] = useState();
   const [dispositivos, setDispositivos] = useState([]);
+  const [editarDispositivo, setEditarDispositivo] = useState(null);
+  const [mostrarForm, setMostrarForm] = useState(false);
+
+  function handleGuardado() {
+    fetch("/api/dispositivos")
+      .then((res) => res.json())
+      .then((datos) => {
+        setDispositivos(datos);
+        setDisplay(datos[0]);
+      });
+  }
 
   useEffect(() => {
     fetch("/api/dispositivos")
@@ -41,7 +54,9 @@ function Dispositivos() {
             </Col>
             {/* TODO: Agregar funcionalidad de boton */}
             <Col xs="auto" className="text-end">
-              <button>+ Registrar dispositivo</button>
+              <button onClick={() => setMostrarForm(true)}>
+                + Registrar dispositivo
+              </button>
             </Col>
           </Row>
         </Container>
@@ -71,7 +86,13 @@ function Dispositivos() {
               </Col>
               <Col md="auto">
                 {/* TODO: Agregar funcionalidad de boton */}
-                <button className="dispositivo-button editar-button">
+                <button
+                  className="dispositivo-button editar-button"
+                  onClick={() => {
+                    setEditarDispositivo(display);
+                    setMostrarForm(true);
+                  }}
+                >
                   <AiFillEdit />
                   Editar
                 </button>
@@ -112,6 +133,15 @@ function Dispositivos() {
           </Row>
         </Container>
       </Container>
+      <DispositivosForm
+        show={mostrarForm}
+        onHide={() => {
+          setMostrarForm(false);
+          setEditarDispositivo(null);
+        }}
+        onGuardado={handleGuardado}
+        dispositivo={editarDispositivo}
+      />
     </section>
   );
 }

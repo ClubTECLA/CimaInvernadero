@@ -4,17 +4,23 @@ import dotenv from "dotenv";
 import lecturasRouter from "./routes/lecturas.js";
 import catalogosRouter from "./routes/catalogos/index.js";
 import dispositivosRouter from "./routes/dispositivos.js";
+import uploadsRouter from "./routes/upload.js";
 import { migrate } from "./database/migrate.js";
 import { seed } from "./database/seed.js";
 import { pool } from "./db.js";
+import { fileURLToPath } from "url";
+import path from "path";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "../../uploads")));
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -43,6 +49,7 @@ app.get("/api/health", async (req, res) => {
 app.use("/api/lecturas", lecturasRouter);
 app.use("/api/dispositivos", dispositivosRouter);
 app.use("/api/catalogos", catalogosRouter);
+app.use("/api/uploads", uploadsRouter);
 
 // Inicializa la base de datos y arranca el servidor
 async function inicializar() {
