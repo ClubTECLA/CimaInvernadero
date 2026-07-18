@@ -7,6 +7,7 @@ import { AiFillEdit, AiFillDelete } from "react-icons/ai";
 
 import ZonasForm from "./ZonasForm";
 import TiposForm from "./TiposForm";
+import UnidadForm from "./UnidadForm";
 
 function Configuracion() {
   const [zonas, setZonas] = useState([]);
@@ -17,6 +18,8 @@ function Configuracion() {
   const [editarZona, setEditarZona] = useState(null);
   const [mostrarTipo, setMostrarTipo] = useState(false);
   const [editarTipo, setEditarTipo] = useState(null);
+  const [mostrarUnidad, setMostrarUnidad] = useState(false);
+  const [editarUnidad, setEditarUnidad] = useState(null);
 
   useEffect(() => {
     fetch("/api/catalogos/zonas")
@@ -177,7 +180,12 @@ function Configuracion() {
             <Container className="single-display card-component" id="datos">
               <div className="single-display-title">
                 <h2>Tipos de dato</h2>
-                <button className="single-display-add">+</button>
+                <button
+                  className="single-display-add"
+                  onClick={() => setMostrarUnidad(true)}
+                >
+                  +
+                </button>
               </div>
               <div className="catalogos-table-section catalogos-datos-section">
                 {dato.map((d) => (
@@ -186,10 +194,21 @@ function Configuracion() {
                       {d.nombre} ({d.unidad})
                     </span>
                     <div className="single-display-buttons">
-                      <button className="single-display-edit">
+                      <button
+                        className="single-display-edit"
+                        onClick={() => {
+                          setMostrarUnidad(true);
+                          setEditarUnidad(d);
+                        }}
+                      >
                         <AiFillEdit />
                       </button>
-                      <button className="single-display-delete">
+                      <button
+                        className="single-display-delete"
+                        onClick={() =>
+                          handleEliminar(d.id, d.nombre, "tipos-dato")
+                        }
+                      >
                         <AiFillDelete />
                       </button>
                     </div>
@@ -218,6 +237,15 @@ function Configuracion() {
         }}
         onGuardado={() => refresh("tipos-dispositivo")}
         componente={editarTipo}
+      />
+      <UnidadForm
+        show={mostrarUnidad}
+        onHide={() => {
+          setMostrarUnidad(false);
+          setEditarUnidad(null);
+        }}
+        onGuardado={() => refresh("tipos-dato")}
+        componente={editarUnidad}
       />
     </section>
   );
