@@ -113,7 +113,12 @@ function Configuracion() {
               <div className="catalogos-table-section catalogos-zonas-section">
                 {zonas.map((z) => (
                   <div className="single-display-config">
-                    <span className="single-display-info">{z.zona}</span>
+                    <span className="single-display-info">
+                      <sub>
+                        <strong>({z.id})</strong>
+                      </sub>{" "}
+                      {z.zona}
+                    </span>
                     <div className="single-display-buttons">
                       <button
                         className="single-display-edit"
@@ -152,7 +157,13 @@ function Configuracion() {
               <div className="catalogos-table-section catalogos-dispositivos-section">
                 {tipos.map((t) => (
                   <div className="single-display-config">
-                    <span className="single-display-info">{t.nombre}</span>
+                    <span className="single-display-info">
+                      {" "}
+                      <sub>
+                        <strong>({t.id})</strong>
+                      </sub>{" "}
+                      {t.nombre}
+                    </span>
                     <div className="single-display-buttons">
                       <button
                         className="single-display-edit"
@@ -191,6 +202,10 @@ function Configuracion() {
                 {dato.map((d) => (
                   <div className="single-display-config">
                     <span className="single-display-info">
+                      {" "}
+                      <sub>
+                        <strong>({d.id})</strong>
+                      </sub>{" "}
                       {d.nombre} ({d.unidad})
                     </span>
                     <div className="single-display-buttons">
