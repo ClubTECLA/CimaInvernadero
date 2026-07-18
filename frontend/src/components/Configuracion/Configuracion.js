@@ -24,6 +24,51 @@ function Configuracion() {
       .then((datos) => setDato(datos));
   }, []);
 
+  function refresh(ruta) {
+    fetch(`/api/catalogos/${ruta}`)
+      .then((res) => res.json())
+      .then((datos) => {
+        switch (ruta) {
+          case "zonas":
+            setZonas(datos);
+            break;
+          case "tipos-dispositivo":
+            setTipos(datos);
+            break;
+          case "tipos-dato":
+            setDato(datos);
+            break;
+          default:
+            window.print(`No se encontró ${ruta}`);
+            break;
+        }
+      });
+  }
+
+  async function handleEliminar(id, nombre, ruta) {
+    const confirmado = window.confirm(
+      `¿Estás seguro de que deseas eliminar "${nombre}"? Esta acción no se puede deshacer.`,
+    );
+
+    if (!confirmado) return;
+
+    try {
+      const res = await fetch(`/api/catalogos/${ruta}/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const datos = await res.json();
+        alert(datos.error);
+        return;
+      }
+
+      refresh(ruta);
+    } catch (error) {
+      alert("Error al eliminar");
+    }
+  }
+
   return (
     <section>
       <Container className="catalogos-section">
@@ -55,7 +100,10 @@ function Configuracion() {
                       <button className="single-display-edit">
                         <AiFillEdit />
                       </button>
-                      <button className="single-display-delete">
+                      <button
+                        className="single-display-delete"
+                        onClick={() => handleEliminar(z.id, z.zona, "zonas")}
+                      >
                         <AiFillDelete />
                       </button>
                     </div>
