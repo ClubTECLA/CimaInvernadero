@@ -1,5 +1,10 @@
 import { Router } from "express";
 import { pool } from "../../db.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const router = Router();
 
@@ -73,39 +78,59 @@ router.patch("/:id", async (req, res) => {
   const campos = [];
   const valores = [];
 
-  if (nombre !== undefined) {
-    campos.push("nombre = ?");
-    valores.push(nombre);
-  }
-  if (descripcion !== undefined) {
-    campos.push("descripcion = ?");
-    valores.push(descripcion);
-  }
-  if (image_path !== undefined) {
-    campos.push("image_path = ?");
-    valores.push(image_path);
-  }
-
-  if (campos.length === 0) {
-    return res
-      .status(400)
-      .json({ error: "Debes enviar al menos un campo para actualizar" });
-  }
-
-  valores.push(id);
-
   try {
+    if (image_path !== undefined) {
+      const [actual] = await pool.query(
+        "SELECT image_path FROM tipo_dispositivo WHERE id = ?",
+        [id],
+      );
+
+      if (actual[0]?.image_path && actual[0].image_path !== image_path) {
+        const rutaVieja = path.join(
+          __dirname,
+          "../../../uploads",
+          actual[0].image_path.replace("/uploads/", ""),
+        );
+        fs.unlink(rutaVieja, (err) => {
+          if (err)
+            console.error("No se pudo borrar imagen vieja:", err.message);
+        });
+      }
+
+      campos.push("image_path = ?");
+      valores.push(image_path);
+    }
+
+    if (nombre !== undefined) {
+      campos.push("nombre = ?");
+      valores.push(nombre);
+    }
+    if (descripcion !== undefined) {
+      campos.push("descripcion = ?");
+      valores.push(descripcion);
+    }
+
+    if (campos.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Debes enviar al menos un campo para actualizar" });
+    }
+
+    valores.push(id);
+
     const [result] = await pool.query(
       `UPDATE tipo_dispositivo SET ${campos.join(", ")} WHERE id = ?`,
       valores,
     );
+
     if (result.affectedRows === 0) {
       return res
         .status(404)
-        .json({ error: `tipo de dispositivo ${id} no encontrado` });
+        .json({ error: `Tipo de dispositivo ${id} no encontrado` });
     }
+
     res.json({
-      message: `tipo de dispositivo ${id} actualizado correctamente`,
+      message: `Tipo de dispositivo ${id} actualizado correctamente`,
     });
   } catch (error) {
     console.error("Error al actualizar tipo de dispositivo:", error.message);
@@ -120,27 +145,46 @@ router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Verifica si algún dispositivo usa este tipo de dispositivo antes de borrar
     const [dispositivos] = await pool.query(
       "SELECT id FROM dispositivo WHERE tipo_id = ?",
       [id],
     );
     if (dispositivos.length > 0) {
       return res.status(409).json({
-        error: `No se puede eliminar, ${dispositivos.length} dispositivo(s) usan este tipo de dispositivo`,
+        error: `No se puede eliminar, ${dispositivos.length} dispositivo(s) usan este tipo`,
       });
     }
+
+    // Obtén la imagen antes de borrar
+    const [tipo] = await pool.query(
+      "SELECT image_path FROM tipo_dispositivo WHERE id = ?",
+      [id],
+    );
 
     const [result] = await pool.query(
       "DELETE FROM tipo_dispositivo WHERE id = ?",
       [id],
     );
+
     if (result.affectedRows === 0) {
       return res
         .status(404)
-        .json({ error: `tipo de dispositivo ${id} no encontrado` });
+        .json({ error: `Tipo de dispositivo ${id} no encontrado` });
     }
-    res.json({ message: `tipo de dispositivo ${id} eliminado correctamente` });
+
+    // Borra la imagen si tenía una
+    if (tipo[0]?.image_path) {
+      const rutaArchivo = path.join(
+        __dirname,
+        "../../../uploads",
+        tipo[0].image_path.replace("/uploads/", ""),
+      );
+      fs.unlink(rutaArchivo, (err) => {
+        if (err) console.error("No se pudo borrar la imagen:", err.message);
+      });
+    }
+
+    res.json({ message: `Tipo de dispositivo ${id} eliminado correctamente` });
   } catch (error) {
     console.error("Error al eliminar tipo de dispositivo:", error.message);
     res.status(500).json({ error: "Error al eliminar el tipo de dispositivo" });

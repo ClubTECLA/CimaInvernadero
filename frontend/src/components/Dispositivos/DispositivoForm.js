@@ -26,7 +26,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
   useEffect(() => {
     if (!show) return;
 
-    fetch("/api/catalogos/zonas")
+    fetch(`/api/catalogos/zonas?t=${Date.now()}`)
       .then((res) => res.json())
       .then((datos) => {
         const opciones = datos.map((z) => ({ value: z.id, label: z.zona }));

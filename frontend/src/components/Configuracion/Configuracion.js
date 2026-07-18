@@ -6,6 +6,7 @@ import Row from "react-bootstrap/Row";
 import { AiFillEdit, AiFillDelete } from "react-icons/ai";
 
 import ZonasForm from "./ZonasForm";
+import TiposForm from "./TiposForm";
 
 function Configuracion() {
   const [zonas, setZonas] = useState([]);
@@ -14,6 +15,8 @@ function Configuracion() {
 
   const [mostrarZona, setMostrarZona] = useState(false);
   const [editarZona, setEditarZona] = useState(null);
+  const [mostrarTipo, setMostrarTipo] = useState(false);
+  const [editarTipo, setEditarTipo] = useState(null);
 
   useEffect(() => {
     fetch("/api/catalogos/zonas")
@@ -136,17 +139,33 @@ function Configuracion() {
             >
               <div className="single-display-title">
                 <h2>Tipos de dispositivo</h2>
-                <button className="single-display-add">+</button>
+                <button
+                  className="single-display-add"
+                  onClick={() => setMostrarTipo(true)}
+                >
+                  +
+                </button>
               </div>
               <div className="catalogos-table-section catalogos-dispositivos-section">
                 {tipos.map((t) => (
                   <div className="single-display-config">
                     <span className="single-display-info">{t.nombre}</span>
                     <div className="single-display-buttons">
-                      <button className="single-display-edit">
+                      <button
+                        className="single-display-edit"
+                        onClick={() => {
+                          setMostrarTipo(true);
+                          setEditarTipo(t);
+                        }}
+                      >
                         <AiFillEdit />
                       </button>
-                      <button className="single-display-delete">
+                      <button
+                        className="single-display-delete"
+                        onClick={() =>
+                          handleEliminar(t.id, t.nombre, "tipos-dispositivo")
+                        }
+                      >
                         <AiFillDelete />
                       </button>
                     </div>
@@ -190,6 +209,15 @@ function Configuracion() {
         }}
         onGuardado={() => refresh("zonas")}
         componente={editarZona}
+      />
+      <TiposForm
+        show={mostrarTipo}
+        onHide={() => {
+          setMostrarTipo(false);
+          setEditarTipo(null);
+        }}
+        onGuardado={() => refresh("tipos-dispositivo")}
+        componente={editarTipo}
       />
     </section>
   );
