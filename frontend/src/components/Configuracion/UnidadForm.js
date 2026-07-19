@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import Modal from "react-bootstrap/Modal";
 
+import { fetchAuth } from "../../utils/fetchAuth";
+
 function UnidadForm({ show, onHide, onGuardado, componente }) {
   const esEdicion = !!componente;
   const [nombre, setNombre] = useState("");
@@ -27,7 +29,7 @@ function UnidadForm({ show, onHide, onGuardado, componente }) {
     setError(null);
 
     try {
-      const res = await fetch(
+      const res = await fetchAuth(
         esEdicion
           ? `/api/catalogos/tipos-dato/${componente.id}`
           : "/api/catalogos/tipos-dato",

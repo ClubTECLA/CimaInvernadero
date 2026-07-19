@@ -6,7 +6,9 @@ import { useEffect, useState } from "react";
 import { lazy, Suspense } from "react";
 
 import "./style.css";
+import { AuthProvider } from "./context/AuthContext";
 
+const Login = lazy(() => import("./components/Login/Login"));
 const Home = lazy(() => import("./components/Inicio/Home"));
 const Datos = lazy(() => import("./components/Datos/Datos"));
 const Dispositivos = lazy(
@@ -27,23 +29,26 @@ function App() {
   }, []);
 
   return (
-    <Router>
-      <Preloader load={load} />
-      <div className="App" id={load ? "no-scroll" : "scroll"}>
-        <NavBar />
-        <div className="app-content">
-          <Suspense fallback={<div>Cargando...</div>}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/datos" element={<Datos />} />
-              <Route path="/dispositivos" element={<Dispositivos />} />
-              <Route path="/configuracion" element={<Configuracion />} />
-            </Routes>
-          </Suspense>
+    <AuthProvider>
+      <Router>
+        <Preloader load={load} />
+        <div className="App" id={load ? "no-scroll" : "scroll"}>
+          <NavBar />
+          <div className="app-content">
+            <Suspense fallback={<div>Cargando...</div>}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/datos" element={<Datos />} />
+                <Route path="/dispositivos" element={<Dispositivos />} />
+                <Route path="/configuracion" element={<Configuracion />} />
+              </Routes>
+            </Suspense>
+          </div>
+          <Footer />
         </div>
-        <Footer />
-      </div>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 

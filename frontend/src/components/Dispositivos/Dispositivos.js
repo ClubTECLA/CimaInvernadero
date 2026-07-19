@@ -9,6 +9,9 @@ import { AiFillEdit, AiFillDelete } from "react-icons/ai";
 
 import defaultImg from "../../Assets/dispositivo-default.png";
 
+import { useAuth } from "../../context/AuthContext";
+import { fetchAuth } from "../../utils/fetchAuth";
+
 const estadoClases = {
   OPERATIVO: "estado-operativo",
   INACTIVO: "estado-inactivo",
@@ -17,6 +20,8 @@ const estadoClases = {
 };
 
 function Dispositivos() {
+  const { isAuthenticated } = useAuth();
+
   const [display, setDisplay] = useState();
   const [dispositivos, setDispositivos] = useState([]);
   const [editarDispositivo, setEditarDispositivo] = useState(null);
@@ -44,7 +49,7 @@ function Dispositivos() {
     if (!confirmado) return;
 
     try {
-      const res = await fetch(`/api/dispositivos/${display.id}`, {
+      const res = await fetchAuth(`/api/dispositivos/${display.id}`, {
         method: "DELETE",
       });
 
@@ -82,9 +87,11 @@ function Dispositivos() {
               </p>
             </Col>
             <Col xs="auto" className="text-end">
-              <button onClick={() => setMostrarForm(true)}>
-                + Registrar dispositivo
-              </button>
+              {isAuthenticated && (
+                <button onClick={() => setMostrarForm(true)}>
+                  + Registrar dispositivo
+                </button>
+              )}
             </Col>
           </Row>
         </Container>
@@ -124,23 +131,27 @@ function Dispositivos() {
                 </div>
               </Col>
               <Col md="auto">
-                <button
-                  className="dispositivo-button editar-button"
-                  onClick={() => {
-                    setEditarDispositivo(display);
-                    setMostrarForm(true);
-                  }}
-                >
-                  <AiFillEdit />
-                  Editar
-                </button>
-                <button
-                  className="dispositivo-button eliminar-button"
-                  onClick={handleEliminar}
-                >
-                  <AiFillDelete />
-                  Eliminar
-                </button>
+                {isAuthenticated && (
+                  <button
+                    className="dispositivo-button editar-button"
+                    onClick={() => {
+                      setEditarDispositivo(display);
+                      setMostrarForm(true);
+                    }}
+                  >
+                    <AiFillEdit />
+                    Editar
+                  </button>
+                )}
+                {isAuthenticated && (
+                  <button
+                    className="dispositivo-button eliminar-button"
+                    onClick={handleEliminar}
+                  >
+                    <AiFillDelete />
+                    Eliminar
+                  </button>
+                )}
               </Col>
             </Row>
           ) : (

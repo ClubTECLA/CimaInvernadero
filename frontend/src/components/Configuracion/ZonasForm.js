@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Modal from "react-bootstrap/Modal";
+import { fetchAuth } from "../../utils/fetchAuth";
 
 function ZonasForm({ show, onHide, onGuardado, componente }) {
   const esEdicion = !!componente;
@@ -25,7 +26,7 @@ function ZonasForm({ show, onHide, onGuardado, componente }) {
     setError(null);
 
     try {
-      const res = await fetch(
+      const res = await fetchAuth(
         esEdicion
           ? `/api/catalogos/zonas/${componente.id}`
           : "/api/catalogos/zonas",

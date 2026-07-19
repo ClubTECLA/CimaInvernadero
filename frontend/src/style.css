@@ -46,7 +46,21 @@ h2 {
   color: var(--verde-secundario);
 }
 
-/* SECCIÓN: BARRA DE NAVEGACIÓN*/
+/* SECCIÓN: LOGIN */
+.login-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 70vh;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+}
+
+/* SECCIÓN: BARRA DE NAVEGACIÓN */
 .navbar.sticky {
   background-color: var(--verde-principal-alfa) !important;
   position: fixed;

@@ -3,13 +3,18 @@ import Container from "react-bootstrap/Container";
 import Col from "react-bootstrap/Col";
 import Row from "react-bootstrap/Row";
 
+import { useAuth } from "../../context/AuthContext";
+
 import { AiFillEdit, AiFillDelete } from "react-icons/ai";
 
 import ZonasForm from "./ZonasForm";
 import TiposForm from "./TiposForm";
 import UnidadForm from "./UnidadForm";
+import { fetchAuth } from "../../utils/fetchAuth";
 
 function Configuracion() {
+  const { isAuthenticated } = useAuth();
+
   const [zonas, setZonas] = useState([]);
   const [tipos, setTipos] = useState([]);
   const [dato, setDato] = useState([]);
@@ -64,7 +69,7 @@ function Configuracion() {
     if (!confirmado) return;
 
     try {
-      const res = await fetch(`/api/catalogos/${ruta}/${id}`, {
+      const res = await fetchAuth(`/api/catalogos/${ruta}/${id}`, {
         method: "DELETE",
       });
 
@@ -101,14 +106,16 @@ function Configuracion() {
             <Container className="single-display card-component" id="zonas">
               <div className="single-display-title">
                 <h2>Zonas</h2>
-                <button
-                  className="single-display-add"
-                  onClick={() => {
-                    setMostrarZona(true);
-                  }}
-                >
-                  +
-                </button>
+                {isAuthenticated && (
+                  <button
+                    className="single-display-add"
+                    onClick={() => {
+                      setMostrarZona(true);
+                    }}
+                  >
+                    +
+                  </button>
+                )}
               </div>
               <div className="catalogos-table-section catalogos-zonas-section">
                 {zonas.map((z) => (
@@ -120,21 +127,26 @@ function Configuracion() {
                       {z.zona}
                     </span>
                     <div className="single-display-buttons">
-                      <button
-                        className="single-display-edit"
-                        onClick={() => {
-                          setEditarZona(z);
-                          setMostrarZona(true);
-                        }}
-                      >
-                        <AiFillEdit />
-                      </button>
-                      <button
-                        className="single-display-delete"
-                        onClick={() => handleEliminar(z.id, z.zona, "zonas")}
-                      >
-                        <AiFillDelete />
-                      </button>
+                      {isAuthenticated && (
+                        <button
+                          className="single-display-edit"
+                          onClick={() => {
+                            setEditarZona(z);
+                            setMostrarZona(true);
+                          }}
+                        >
+                          <AiFillEdit />
+                        </button>
+                      )}
+
+                      {isAuthenticated && (
+                        <button
+                          className="single-display-delete"
+                          onClick={() => handleEliminar(z.id, z.zona, "zonas")}
+                        >
+                          <AiFillDelete />
+                        </button>
+                      )}
                     </div>
                     <hr />
                   </div>
@@ -147,12 +159,14 @@ function Configuracion() {
             >
               <div className="single-display-title">
                 <h2>Tipos de dispositivo</h2>
-                <button
-                  className="single-display-add"
-                  onClick={() => setMostrarTipo(true)}
-                >
-                  +
-                </button>
+                {isAuthenticated && (
+                  <button
+                    className="single-display-add"
+                    onClick={() => setMostrarTipo(true)}
+                  >
+                    +
+                  </button>
+                )}
               </div>
               <div className="catalogos-table-section catalogos-dispositivos-section">
                 {tipos.map((t) => (
@@ -165,23 +179,27 @@ function Configuracion() {
                       {t.nombre}
                     </span>
                     <div className="single-display-buttons">
-                      <button
-                        className="single-display-edit"
-                        onClick={() => {
-                          setMostrarTipo(true);
-                          setEditarTipo(t);
-                        }}
-                      >
-                        <AiFillEdit />
-                      </button>
-                      <button
-                        className="single-display-delete"
-                        onClick={() =>
-                          handleEliminar(t.id, t.nombre, "tipos-dispositivo")
-                        }
-                      >
-                        <AiFillDelete />
-                      </button>
+                      {isAuthenticated && (
+                        <button
+                          className="single-display-edit"
+                          onClick={() => {
+                            setMostrarTipo(true);
+                            setEditarTipo(t);
+                          }}
+                        >
+                          <AiFillEdit />
+                        </button>
+                      )}
+                      {isAuthenticated && (
+                        <button
+                          className="single-display-delete"
+                          onClick={() =>
+                            handleEliminar(t.id, t.nombre, "tipos-dispositivo")
+                          }
+                        >
+                          <AiFillDelete />
+                        </button>
+                      )}
                     </div>
                     <hr />
                   </div>
@@ -191,12 +209,14 @@ function Configuracion() {
             <Container className="single-display card-component" id="datos">
               <div className="single-display-title">
                 <h2>Tipos de dato</h2>
-                <button
-                  className="single-display-add"
-                  onClick={() => setMostrarUnidad(true)}
-                >
-                  +
-                </button>
+                {isAuthenticated && (
+                  <button
+                    className="single-display-add"
+                    onClick={() => setMostrarUnidad(true)}
+                  >
+                    +
+                  </button>
+                )}
               </div>
               <div className="catalogos-table-section catalogos-datos-section">
                 {dato.map((d) => (
@@ -209,23 +229,28 @@ function Configuracion() {
                       {d.nombre} ({d.unidad})
                     </span>
                     <div className="single-display-buttons">
-                      <button
-                        className="single-display-edit"
-                        onClick={() => {
-                          setMostrarUnidad(true);
-                          setEditarUnidad(d);
-                        }}
-                      >
-                        <AiFillEdit />
-                      </button>
-                      <button
-                        className="single-display-delete"
-                        onClick={() =>
-                          handleEliminar(d.id, d.nombre, "tipos-dato")
-                        }
-                      >
-                        <AiFillDelete />
-                      </button>
+                      {isAuthenticated && (
+                        <button
+                          className="single-display-edit"
+                          onClick={() => {
+                            setMostrarUnidad(true);
+                            setEditarUnidad(d);
+                          }}
+                        >
+                          <AiFillEdit />
+                        </button>
+                      )}
+
+                      {isAuthenticated && (
+                        <button
+                          className="single-display-delete"
+                          onClick={() =>
+                            handleEliminar(d.id, d.nombre, "tipos-dato")
+                          }
+                        >
+                          <AiFillDelete />
+                        </button>
+                      )}
                     </div>
                     <hr />
                   </div>
@@ -265,7 +290,5 @@ function Configuracion() {
     </section>
   );
 }
-
-//TODO: Crear funciones de botonones
 
 export default Configuracion;

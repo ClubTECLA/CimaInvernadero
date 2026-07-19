@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Modal from "react-bootstrap/Modal";
 import CreatableSelect from "react-select/creatable";
+import { fetchAuth } from "../../utils/fetchAuth";
 
 const estadoOpciones = [
   { value: "OPERATIVO", label: "Operativo" },
@@ -61,7 +62,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
   }, [show, dispositivo]);
 
   async function crearZona(nombreZona) {
-    const res = await fetch("/api/catalogos/zonas", {
+    const res = await fetchAuth("/api/catalogos/zonas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ zona: nombreZona }),
@@ -73,7 +74,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
   }
 
   async function crearTipo(nombreTipo) {
-    const res = await fetch("/api/catalogos/tipos-dispositivo", {
+    const res = await fetchAuth("/api/catalogos/tipos-dispositivo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nombre: nombreTipo }),
@@ -96,7 +97,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
     try {
       let specs_id = null;
       if (largo || ancho || altura) {
-        const resSpecs = await fetch("/api/catalogos/especificaciones", {
+        const resSpecs = await fetchAuth("/api/catalogos/especificaciones", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -109,7 +110,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
         specs_id = datosSpecs.id;
       }
 
-      const res = await fetch(
+      const res = await fetchAuth(
         esEdicion ? `/api/dispositivos/${dispositivo.id}` : "/api/dispositivos",
         {
           method: esEdicion ? "PATCH" : "POST",

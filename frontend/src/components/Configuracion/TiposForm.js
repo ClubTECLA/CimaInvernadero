@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import Modal from "react-bootstrap/Modal";
 
+import { fetchAuth } from "../../utils/fetchAuth";
+
 function TiposForm({ show, onHide, onGuardado, componente }) {
   const esEdicion = !!componente;
   const [nombre, setNombre] = useState("");
@@ -32,7 +34,7 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
       if (imagen) {
         const formData = new FormData();
         formData.append("imagen", imagen);
-        const resImg = await fetch("/api/uploads/dispositivos", {
+        const resImg = await fetchAuth("/api/uploads/dispositivos", {
           method: "POST",
           body: formData,
         });
@@ -46,7 +48,7 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
       const body = { nombre, descripcion, image_path };
       if (imagen) body.image_path = image_path;
 
-      const res = await fetch(
+      const res = await fetchAuth(
         esEdicion
           ? `/api/catalogos/tipos-dispositivo/${componente.id}`
           : "/api/catalogos/tipos-dispositivo",

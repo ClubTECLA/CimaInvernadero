@@ -4,6 +4,9 @@ import Nav from "react-bootstrap/Nav";
 import Container from "react-bootstrap/Container";
 import { Link } from "react-router-dom";
 
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+
 import logo from "../Assets/logo_uabc.png";
 import {
   WiLightning,
@@ -13,13 +16,14 @@ import {
 } from "react-icons/wi";
 
 function NavBar() {
+  const { isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
   const [expand, updateExpander] = useState(false);
   const [navColour, updateNavbar] = useState(false);
 
   useEffect(() => {
     function scrollHandler() {
-      console.log("scrollY:", window.scrollY);
-
       if (window.scrollY >= 1) updateNavbar(true);
       else updateNavbar(false);
     }
@@ -94,6 +98,23 @@ function NavBar() {
                 />
                 Configuracion
               </Nav.Link>
+            </Nav.Item>
+
+            <Nav.Item>
+              {isAuthenticated ? (
+                <Nav.Link
+                  onClick={() => {
+                    logout();
+                    navigate("/");
+                  }}
+                >
+                  Cerrar sesión
+                </Nav.Link>
+              ) : (
+                <Nav.Link as={Link} to="/login">
+                  Iniciar sesión
+                </Nav.Link>
+              )}
             </Nav.Item>
           </Nav>
         </Navbar.Collapse>
