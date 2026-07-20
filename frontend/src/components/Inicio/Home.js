@@ -50,10 +50,6 @@ function Home() {
                 Consulta el estado ambiental actual del invernadero mediante las
                 lecturas registradas por los dispositivos de monitoreo.
               </p>
-              {/* TODO: Agregar funcionalidad de reporte de estado*/}
-              <div className="general-state">
-                <span className="point-state"></span>Estado general:
-              </div>
             </Col>
 
             <Col md={5}>

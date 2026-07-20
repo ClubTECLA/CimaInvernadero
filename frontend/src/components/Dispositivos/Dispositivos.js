@@ -88,7 +88,10 @@ function Dispositivos() {
             </Col>
             <Col xs="auto" className="text-end">
               {isAuthenticated && (
-                <button onClick={() => setMostrarForm(true)}>
+                <button
+                  className="add-button"
+                  onClick={() => setMostrarForm(true)}
+                >
                   + Registrar dispositivo
                 </button>
               )}

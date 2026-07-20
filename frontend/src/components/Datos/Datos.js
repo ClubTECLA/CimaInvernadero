@@ -4,6 +4,8 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Table from "react-bootstrap/Table";
 
+import { CiExport } from "react-icons/ci";
+
 //TODO: Arreglar filtro de fecha
 
 function Datos() {
@@ -98,15 +100,44 @@ function Datos() {
     return [...new Set(botones)];
   }
 
+  async function handleExportar() {
+    const params = new URLSearchParams();
+    if (filtroDispositivo) params.append("dispositivo_id", filtroDispositivo);
+    if (filtroTipoDato) params.append("tipo_dato_id", filtroTipoDato);
+    if (filtroZona) params.append("zona_id", filtroZona);
+    if (filtroFechaInicio) params.append("fecha_inicio", filtroFechaInicio);
+    if (filtroFechaFin) params.append("fecha_fin", filtroFechaFin);
+
+    const res = await fetch(`/api/lecturas/exportar?${params.toString()}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "lecturas.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <section>
       <Container className="data-page">
         <Container className="data-section data-page-section">
-          <h1>Historial de datos</h1>
-          <p>
-            En esta sección se muestran las lecturas registradas por los
-            dispositivos del invernadero.
-          </p>
+          <Row>
+            <Col>
+              <h1>Historial de datos</h1>
+              <p>
+                En esta sección se muestran las lecturas registradas por los
+                dispositivos del invernadero.
+              </p>
+            </Col>
+            <Col className="text-end align-content-center">
+              <button className="add-button" onClick={handleExportar}>
+                <CiExport /> Exportar
+              </button>
+            </Col>
+          </Row>
         </Container>
 
         <Container className="filter-section data-page-section card-component">
@@ -122,7 +153,7 @@ function Datos() {
                 <option value="">Todos los dispositivos</option>
                 {dispositivos.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.nombre}
+                    {d.tipo_dispositivo}
                   </option>
                 ))}
               </select>
