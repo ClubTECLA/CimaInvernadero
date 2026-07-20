@@ -618,6 +618,12 @@ h2 {
   transition: all 0.3s ease;
 }
 
+@media (max-width: 767px) {
+  .catalogos-navbar {
+    display: none;
+  }
+}
+
 .catalogos-display {
   margin-top: 30px;
 }

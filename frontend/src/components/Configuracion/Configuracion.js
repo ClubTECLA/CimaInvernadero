@@ -121,9 +121,11 @@ function Configuracion() {
                 {zonas.map((z) => (
                   <div className="single-display-config">
                     <span className="single-display-info">
-                      <sub>
-                        <strong>({z.id})</strong>
-                      </sub>{" "}
+                      {isAuthenticated && (
+                        <sub>
+                          <strong>({z.id})</strong>
+                        </sub>
+                      )}{" "}
                       {z.zona}
                     </span>
                     <div className="single-display-buttons">
@@ -172,10 +174,11 @@ function Configuracion() {
                 {tipos.map((t) => (
                   <div className="single-display-config">
                     <span className="single-display-info">
-                      {" "}
-                      <sub>
-                        <strong>({t.id})</strong>
-                      </sub>{" "}
+                      {isAuthenticated && (
+                        <sub>
+                          <strong>({t.id})</strong>
+                        </sub>
+                      )}{" "}
                       {t.nombre}
                     </span>
                     <div className="single-display-buttons">
