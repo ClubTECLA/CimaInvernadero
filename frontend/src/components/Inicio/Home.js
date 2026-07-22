@@ -18,7 +18,7 @@ function Home() {
 
   useEffect(() => {
     function fetchLecturas() {
-      fetch(`${API_URL}/api/lecturas/ultimas?dispositivo_id=1`)
+      fetch(`${API_URL}/api/lecturas/ultimas?dispositivo_id=5`)
         .then((res) => res.json())
         .then((respuesta) => {
           const datos = respuesta.datos;
