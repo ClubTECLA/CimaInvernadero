@@ -15,6 +15,7 @@ import authRouter from "./routes/auth.js";
 dotenv.config();
 
 const app = express();
+app.set("etag", false);
 const PORT = process.env.PORT || 4000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
