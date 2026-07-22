@@ -3,6 +3,8 @@ import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 
+import { API_URL } from "../../utils/api";
+
 import DispositivosForm from "./DispositivoForm";
 
 import { AiFillEdit, AiFillDelete } from "react-icons/ai";
@@ -28,7 +30,7 @@ function Dispositivos() {
   const [mostrarForm, setMostrarForm] = useState(false);
 
   function handleGuardado(idEditado = null) {
-    fetch("/api/dispositivos")
+    fetch(`${API_URL}/api/dispositivos`)
       .then((res) => res.json())
       .then((datos) => {
         setDispositivos(datos);
@@ -83,7 +85,7 @@ function Dispositivos() {
   }
 
   useEffect(() => {
-    fetch("/api/dispositivos")
+    fetch(`${API_URL}/api/dispositivos`)
       .then((res) => res.json())
       .then((datos) => {
         setDispositivos(datos);

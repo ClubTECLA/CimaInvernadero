@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import Modal from "react-bootstrap/Modal";
 import CreatableSelect from "react-select/creatable";
+
 import { fetchAuth } from "../../utils/fetchAuth";
+import { API_URL } from "../../utils/api";
 
 const estadoOpciones = [
   { value: "OPERATIVO", label: "Operativo" },
@@ -27,7 +29,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
   useEffect(() => {
     if (!show) return;
 
-    fetch(`/api/catalogos/zonas?t=${Date.now()}`)
+    fetch(`${API_URL}/api/catalogos/zonas?t=${Date.now()}`)
       .then((res) => res.json())
       .then((datos) => {
         const opciones = datos.map((z) => ({ value: z.id, label: z.zona }));
@@ -37,7 +39,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
         }
       });
 
-    fetch("/api/catalogos/tipos-dispositivo")
+    fetch(`${API_URL}/api/catalogos/tipos-dispositivo`)
       .then((res) => res.json())
       .then((datos) => {
         const opciones = datos.map((t) => ({ value: t.id, label: t.nombre }));
@@ -64,7 +66,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
   }, [show, dispositivo]);
 
   async function crearZona(nombreZona) {
-    const res = await fetchAuth("/api/catalogos/zonas", {
+    const res = await fetchAuth(`${API_URL}/api/catalogos/zonas`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ zona: nombreZona }),
@@ -76,7 +78,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
   }
 
   async function crearTipo(nombreTipo) {
-    const res = await fetchAuth("/api/catalogos/tipos-dispositivo", {
+    const res = await fetchAuth(`${API_URL}/api/catalogos/tipos-dispositivo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nombre: nombreTipo }),
@@ -104,7 +106,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
         if (esEdicion && dispositivo.specs_id && dispositivo.specs_id !== 1) {
           // Actualiza las specs existentes
           await fetchAuth(
-            `/api/catalogos/especificaciones/${dispositivo.specs_id}`,
+            `${API_URL}/api/catalogos/especificaciones/${dispositivo.specs_id}`,
             {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
@@ -118,15 +120,18 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
           specs_id = dispositivo.specs_id;
         } else {
           // Crea specs nuevas
-          const resSpecs = await fetchAuth("/api/catalogos/especificaciones", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              largo: largo || null,
-              ancho: ancho || null,
-              altura: altura || null,
-            }),
-          });
+          const resSpecs = await fetchAuth(
+            `${API_URL}/api/catalogos/especificaciones`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                largo: largo || null,
+                ancho: ancho || null,
+                altura: altura || null,
+              }),
+            },
+          );
           const datosSpecs = await resSpecs.json();
           specs_id = datosSpecs.id;
         }
@@ -141,7 +146,9 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
       }
 
       const res = await fetchAuth(
-        esEdicion ? `/api/dispositivos/${dispositivo.id}` : "/api/dispositivos",
+        esEdicion
+          ? `${API_URL}/api/dispositivos/${dispositivo.id}`
+          : `${API_URL}/api/dispositivos`,
         {
           method: esEdicion ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -162,9 +169,12 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
       }
 
       if (viejo_specs_id) {
-        await fetchAuth(`/api/catalogos/especificaciones/${viejo_specs_id}`, {
-          method: "DELETE",
-        });
+        await fetchAuth(
+          `${API_URL}/api/catalogos/especificaciones/${viejo_specs_id}`,
+          {
+            method: "DELETE",
+          },
+        );
       }
 
       limpiarForm();

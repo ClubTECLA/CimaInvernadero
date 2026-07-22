@@ -3,6 +3,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Container } from "react-bootstrap";
 
+import { API_URL } from "../../utils/api";
+
 function Login() {
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
@@ -22,7 +24,7 @@ function Login() {
     setError(null);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ usuario, password }),

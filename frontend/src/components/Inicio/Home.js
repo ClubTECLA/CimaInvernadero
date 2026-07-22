@@ -3,6 +3,8 @@ import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 
+import { API_URL } from "../../utils/api";
+
 import invernadero from "../../Assets/invernadero.png";
 import { WiHumidity, WiThermometer, WiSmog } from "react-icons/wi";
 
@@ -16,7 +18,7 @@ function Home() {
 
   useEffect(() => {
     function fetchLecturas() {
-      fetch("/api/lecturas/ultimas?dispositivo_id=1")
+      fetch(`${API_URL}/api/lecturas/ultimas?dispositivo_id=1`)
         .then((res) => res.json())
         .then((respuesta) => {
           const datos = respuesta.datos;

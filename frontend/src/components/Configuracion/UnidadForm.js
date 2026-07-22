@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Modal from "react-bootstrap/Modal";
 
 import { fetchAuth } from "../../utils/fetchAuth";
+import { API_URL } from "../../utils/api";
 
 function UnidadForm({ show, onHide, onGuardado, componente }) {
   const esEdicion = !!componente;
@@ -31,8 +32,8 @@ function UnidadForm({ show, onHide, onGuardado, componente }) {
     try {
       const res = await fetchAuth(
         esEdicion
-          ? `/api/catalogos/tipos-dato/${componente.id}`
-          : "/api/catalogos/tipos-dato",
+          ? `${API_URL}/api/catalogos/tipos-dato/${componente.id}`
+          : `${API_URL}/api/catalogos/tipos-dato`,
         {
           method: esEdicion ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },

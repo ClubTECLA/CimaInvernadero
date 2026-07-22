@@ -4,6 +4,8 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Table from "react-bootstrap/Table";
 
+import { API_URL } from "../../utils/api";
+
 import { CiExport } from "react-icons/ci";
 
 //TODO: Arreglar filtro de fecha
@@ -24,15 +26,15 @@ function Datos() {
   const [filtroFechaFin, setFiltroFechaFin] = useState("");
 
   useEffect(() => {
-    fetch("/api/dispositivos")
+    fetch(`${API_URL}/api/dispositivos`)
       .then((res) => res.json())
       .then((datos) => setDispositivos(datos));
 
-    fetch("/api/catalogos/tipos-dato")
+    fetch(`${API_URL}/api/catalogos/tipos-dato`)
       .then((res) => res.json())
       .then((datos) => setTiposDato(datos));
 
-    fetch("/api/catalogos/zonas")
+    fetch(`${API_URL}/api/catalogos/zonas`)
       .then((res) => res.json())
       .then((datos) => setZonas(datos));
   }, []);
@@ -60,7 +62,7 @@ function Datos() {
       params.append("page", pagina);
       params.append("limit", 10);
 
-      fetch(`/api/lecturas?${params.toString()}`)
+      fetch(`${API_URL}/api/lecturas?${params.toString()}`)
         .then((res) => res.json())
         .then((datos) => {
           setLecturas(datos.datos);
@@ -108,7 +110,9 @@ function Datos() {
     if (filtroFechaInicio) params.append("fecha_inicio", filtroFechaInicio);
     if (filtroFechaFin) params.append("fecha_fin", filtroFechaFin);
 
-    const res = await fetch(`/api/lecturas/exportar?${params.toString()}`);
+    const res = await fetch(
+      `${API_URL}/api/lecturas/exportar?${params.toString()}`,
+    );
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
 

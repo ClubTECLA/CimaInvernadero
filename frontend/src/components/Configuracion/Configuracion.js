@@ -4,6 +4,7 @@ import Col from "react-bootstrap/Col";
 import Row from "react-bootstrap/Row";
 
 import { useAuth } from "../../context/AuthContext";
+import { API_URL } from "../../utils/api";
 
 import { AiFillEdit, AiFillDelete } from "react-icons/ai";
 
@@ -27,21 +28,21 @@ function Configuracion() {
   const [editarUnidad, setEditarUnidad] = useState(null);
 
   useEffect(() => {
-    fetch("/api/catalogos/zonas")
+    fetch(`${API_URL}/api/catalogos/zonas`)
       .then((res) => res.json())
       .then((datos) => setZonas(datos));
 
-    fetch("/api/catalogos/tipos-dispositivo")
+    fetch(`${API_URL}/api/catalogos/tipos-dispositivo`)
       .then((res) => res.json())
       .then((datos) => setTipos(datos));
 
-    fetch("/api/catalogos/tipos-dato")
+    fetch(`${API_URL}/api/catalogos/tipos-dato`)
       .then((res) => res.json())
       .then((datos) => setDato(datos));
   }, []);
 
   function refresh(ruta) {
-    fetch(`/api/catalogos/${ruta}`)
+    fetch(`${API_URL}/api/catalogos/${ruta}`)
       .then((res) => res.json())
       .then((datos) => {
         switch (ruta) {
@@ -69,7 +70,7 @@ function Configuracion() {
     if (!confirmado) return;
 
     try {
-      const res = await fetchAuth(`/api/catalogos/${ruta}/${id}`, {
+      const res = await fetchAuth(`${API_URL}/api/catalogos/${ruta}/${id}`, {
         method: "DELETE",
       });
 
