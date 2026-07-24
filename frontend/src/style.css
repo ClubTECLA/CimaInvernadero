@@ -530,6 +530,45 @@ h2 {
   margin: 1.5rem 0;
 }
 
+.actual-display-id {
+  margin-top: 0;
+  padding-top: 0;
+  font-size: smaller;
+}
+
+@media (max-width: 767px) {
+  .dispositivos-page {
+    width: 90%;
+  }
+
+  .dispositivos-title h1 {
+    position: absolute;
+  }
+
+  .dispositivos-title p,
+  dispositivos-title button {
+    margin-top: 3rem;
+  }
+
+  .dispositivo-img {
+    display: block;
+    margin: auto;
+    width: 80%;
+  }
+
+  .estado-badge {
+    display: block;
+    margin: auto;
+    width: fit-content;
+    margin-top: 1rem;
+  }
+
+  .actual-display-config-buttons {
+    display: flex;
+    justify-content: end;
+  }
+}
+
 .dispositivo-button {
   border-radius: 0.5rem;
   padding: 0.5rem 1rem;

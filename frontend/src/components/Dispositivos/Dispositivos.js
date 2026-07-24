@@ -137,16 +137,20 @@ function Dispositivos() {
                   </span>
                   <div>
                     <h2>{display?.nombre}</h2>
-                    <h6>{display?.tipo_dispositivo}</h6>
+                    <h6 className="mb-0">{display?.tipo_dispositivo}</h6>
+                    <span className="actual-display-id">
+                      <strong>Id: </strong>
+                      {display?.id}
+                    </span>
                   </div>
                   <p>{display?.descripcion}</p>
-                  <p>
+                  <p className="mb-0">
                     <strong>Ubicacion: </strong> {display?.zona}
                     {handlerSpecs(display)}
                   </p>
                 </div>
               </Col>
-              <Col md="auto">
+              <Col md="auto" className="actual-display-config-buttons">
                 {isAuthenticated && (
                   <button
                     className="dispositivo-button editar-button"

@@ -8,8 +8,6 @@ import { API_URL } from "../../utils/api";
 
 import { CiExport } from "react-icons/ci";
 
-//TODO: Arreglar filtro de fecha
-
 function Datos() {
   const [lecturas, setLecturas] = useState([]);
   const [dispositivos, setDispositivos] = useState([]);
@@ -60,7 +58,7 @@ function Datos() {
       if (filtroFechaInicio) params.append("fecha_inicio", filtroFechaInicio);
       if (filtroFechaFin) params.append("fecha_fin", filtroFechaFin);
       params.append("page", pagina);
-      params.append("limit", 10);
+      params.append("limit", 13);
 
       fetch(`${API_URL}/api/lecturas?${params.toString()}`)
         .then((res) => res.json())
@@ -84,7 +82,7 @@ function Datos() {
 
   function generarBotonesPagina() {
     const botones = [];
-    const rango = 2; // cuántas páginas mostrar a cada lado de la actual
+    const rango = 1; // cuántas páginas mostrar a cada lado de la actual
 
     for (let i = 1; i <= totalPaginas; i++) {
       // Muestra siempre: primera, última, y las cercanas a la página actual
@@ -94,8 +92,6 @@ function Datos() {
         (i >= pagina - rango && i <= pagina + rango)
       ) {
         botones.push(i);
-      } else if (i === pagina - rango - 1 || i === pagina + rango + 1) {
-        botones.push("...");
       }
     }
 
