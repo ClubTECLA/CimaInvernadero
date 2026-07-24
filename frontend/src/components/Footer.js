@@ -20,13 +20,23 @@ function Footer() {
         <Col md="4" className="footer-body">
           <ul className="footer-icons">
             <li className="social-icons">
-              <a href="/" style={{ color: "white" }}>
+              <a
+                href="https://github.com/ClubTECLA"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "white" }}
+              >
                 {/* //TODO: Agregar link */}
                 <BsGithub />
               </a>
             </li>
             <li className="social-icons">
-              <a href="/" style={{ color: "white" }}>
+              <a
+                href="https://www.facebook.com/profile.php?id=61587888058809"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "white" }}
+              >
                 {/* //TODO: Agregar link */}
 
                 <BsFacebook />

@@ -262,6 +262,12 @@ h2 {
   aspect-ratio: 16/9;
 }
 
+.home-data-title {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
 @media (max-width: 767px) {
   .home-section {
     width: 95%;

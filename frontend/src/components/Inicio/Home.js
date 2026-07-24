@@ -13,14 +13,26 @@ function Home() {
     { temperatura: null, humedad: null, vpd: null },
     [],
   );
+
+  const [tipos, setTipos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
+  const [dispositivoPromedio, setDispositivoPromedio] = useState(
+    localStorage.getItem("tipo_dispositivo_promedio") || "",
+  );
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/catalogos/tipos-dispositivo`)
+      .then((res) => res.json())
+      .then((datos) => setTipos(datos));
+  }, []);
+
   useEffect(() => {
     function fetchPromedio() {
-      const tipoId = localStorage.getItem("tipo_dispositivo_promedio") || "";
       const params = new URLSearchParams();
-      if (tipoId) params.append("tipo_dispositivo_id", tipoId);
+      if (dispositivoPromedio)
+        params.append("tipo_dispositivo_id", dispositivoPromedio);
 
       fetch(`${API_URL}/api/lecturas/promedio?${params.toString()}`)
         .then((res) => res.json())
@@ -42,7 +54,7 @@ function Home() {
     fetchPromedio();
     const intervalo = setInterval(fetchPromedio, 120000);
     return () => clearInterval(intervalo);
-  }, []);
+  }, [dispositivoPromedio]);
 
   return (
     <section>
@@ -90,8 +102,30 @@ function Home() {
       ) : (
         <Container className="home-section  card-component">
           <Container className="home-content data-section">
-            <h1>Datos actuales</h1>
-            <p>Lecturas más recientes registradas</p>
+            <div className="home-data-title">
+              <div>
+                <h1>Datos actuales</h1>
+                <p>Lecturas más recientes registradas</p>
+              </div>
+              <div>
+                <select
+                  value={dispositivoPromedio}
+                  onChange={(e) => {
+                    const valor = e.target.value;
+                    setDispositivoPromedio(valor);
+                    localStorage.setItem("tipo_dispositivo_promedio", valor);
+                  }}
+                  className="select-dispositivo"
+                >
+                  <option value="">Todos los tipos de dispositivo</option>
+                  {tipos.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="lecturas-section">
               <div className="lectura-card temperatura">
                 <span className="lectura-label">

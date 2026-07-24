@@ -15,6 +15,7 @@ router.get("/", async (req, res) => {
     d.nombre,
     d.created_at,
     d.specs_id,
+    p.nombre AS proposito,
     e.altura,
     e.ancho,
     e.largo,
@@ -23,7 +24,8 @@ router.get("/", async (req, res) => {
     t.descripcion,
     t.image_path
   FROM dispositivo d
-  LEFT JOIN especificaciones e ON d.specs_id = e.id
+  LEFT JOIN proposito p ON d.proposito_id = p.id
+  JOIN especificaciones e ON d.specs_id = e.id
   JOIN zona z ON d.zona_id = z.id
   JOIN tipo_dispositivo t ON d.tipo_id = t.id
   ORDER BY d.created_at DESC
@@ -46,6 +48,7 @@ router.get("/:id", async (req, res) => {
         d.estado,
         d.nombre,
         d.created_at,
+        p.nombre AS proposito,
         e.altura,
         e.ancho,
         e.largo,
@@ -54,6 +57,7 @@ router.get("/:id", async (req, res) => {
         t.descripcion,
         t.image_path
       FROM dispositivo d
+      JOIN proposito p ON d.proposito_id = p.id
       JOIN especificaciones e ON d.specs_id = e.id
       JOIN zona z ON d.zona_id = z.id
       JOIN tipo_dispositivo t ON d.tipo_id = t.id
@@ -74,12 +78,12 @@ router.get("/:id", async (req, res) => {
 
 // POST /api/dispositivos
 router.post("/", verificarToken, async (req, res) => {
-  const { specs_id, zona_id, tipo_id, estado, nombre } = req.body;
+  const { specs_id, zona_id, tipo_id, estado, proposito_id, nombre } = req.body;
 
-  if (!zona_id || !tipo_id || !estado || !nombre) {
-    return res
-      .status(400)
-      .json({ error: "la zona, tipo, estado y el nombre son requeridos" });
+  if (!zona_id || !tipo_id || !estado || !nombre || !proposito_id) {
+    return res.status(400).json({
+      error: "la zona, tipo, estado, el proposito y el nombre son requeridos",
+    });
   }
 
   const connection = await pool.getConnection();
@@ -122,9 +126,21 @@ router.post("/", verificarToken, async (req, res) => {
         .json({ error: `Tipo de dispositivo ${tipo_id} no encontrado` });
     }
 
+    const [proposito] = await connection.query(
+      "SELECT id FROM proposito WHERE id = ?",
+      [proposito_id],
+    );
+
+    if (proposito.length === 0) {
+      await connection.rollback();
+      return res
+        .status(404)
+        .json({ error: `Proposito ${proposito_id} no encontrado` });
+    }
+
     const [result] = await connection.query(
-      "INSERT INTO dispositivo (specs_id, zona_id, tipo_id, estado, nombre) VALUES (?, ?, ?, ?, ?)",
-      [specs_id, zona_id, tipo_id, estado, nombre],
+      "INSERT INTO dispositivo (specs_id, zona_id, tipo_id, estado, proposito_id, nombre) VALUES (?, ?, ?, ?, ?, ?)",
+      [specs_id, zona_id, tipo_id, estado, proposito_id, nombre],
     );
 
     await connection.commit();
@@ -144,7 +160,7 @@ router.post("/", verificarToken, async (req, res) => {
 // PATCH /api/dispositivos/:id -> actualizar solo los campos enviados
 router.patch("/:id", verificarToken, async (req, res) => {
   const { id } = req.params;
-  const { specs_id, zona_id, tipo_id, estado, nombre } = req.body;
+  const { specs_id, zona_id, tipo_id, estado, proposito_id, nombre } = req.body;
 
   // Construye dinámicamente solo los campos que llegaron
   const campos = [];
@@ -204,6 +220,24 @@ router.patch("/:id", verificarToken, async (req, res) => {
 
       campos.push("tipo_id = ?");
       valores.push(tipo_id);
+    }
+
+    // Revisar que el proposito exista
+    if (proposito_id !== undefined) {
+      const [proposito] = await connection.query(
+        "SELECT id FROM proposito WHERE id = ?",
+        [proposito_id],
+      );
+
+      if (proposito.length === 0) {
+        await connection.rollback();
+        return res
+          .status(404)
+          .json({ error: `Proposito ${proposito_id} no encontrado` });
+      }
+
+      campos.push("proposito_id = ?");
+      valores.push(proposito_id);
     }
 
     if (estado !== undefined) {

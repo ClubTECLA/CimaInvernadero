@@ -18,16 +18,22 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
   const [zona, setZona] = useState(null);
   const [tipo, setTipo] = useState(null);
   const [estado, setEstado] = useState(null);
+  const [proposito, setProposito] = useState(null);
   const [largo, setLargo] = useState("");
   const [ancho, setAncho] = useState("");
   const [altura, setAltura] = useState("");
   const [zonasOpciones, setZonasOpciones] = useState([]);
   const [tiposOpciones, setTiposOpciones] = useState([]);
+  const [propositosOpciones, setPropositosOpciones] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!show) return;
+
+    if (!dispositivo) {
+      limpiarForm();
+    }
 
     fetch(`${API_URL}/api/catalogos/zonas?t=${Date.now()}`)
       .then((res) => res.json())
@@ -48,6 +54,18 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
           setTipo(
             opciones.find((t) => t.label === dispositivo.tipo_dispositivo) ||
               null,
+          );
+        }
+      });
+
+    fetch(`${API_URL}/api/catalogos/propositos`)
+      .then((res) => res.json())
+      .then((datos) => {
+        const opciones = datos.map((p) => ({ value: p.id, label: p.nombre }));
+        setPropositosOpciones(opciones);
+        if (dispositivo) {
+          setProposito(
+            opciones.find((p) => p.label === dispositivo.proposito) || null,
           );
         }
       });
@@ -89,9 +107,21 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
     setTipo(nueva);
   }
 
+  async function crearProposito(nombreProposito) {
+    const res = await fetchAuth(`${API_URL}/api/catalogos/propositos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre: nombreProposito }),
+    });
+    const datos = await res.json();
+    const nueva = { value: datos.id, label: nombreProposito };
+    setPropositosOpciones((prev) => [...prev, nueva]);
+    setProposito(nueva);
+  }
+
   async function handleGuardar() {
-    if (!nombre || !zona || !tipo || !estado) {
-      setError("Nombre, zona, tipo y estado son obligatorios");
+    if (!nombre || !zona || !tipo || !estado || !proposito) {
+      setError("Nombre, zona, tipo, estado y proposito son obligatorios");
       return;
     }
 
@@ -157,6 +187,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
             zona_id: zona.value,
             tipo_id: tipo.value,
             estado: estado.value,
+            proposito_id: proposito.value,
             specs_id,
           }),
         },
@@ -192,6 +223,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
     setZona(null);
     setTipo(null);
     setEstado(null);
+    setProposito(null);
     setLargo("");
     setAltura("");
     setAncho("");
@@ -251,6 +283,18 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
             onChange={setEstado}
             placeholder="Selecciona un estado"
             isValidNewOption={() => false}
+          />
+        </div>
+
+        <div className="form-group mb-3">
+          <label className="form-label fw-bold">Proposito *</label>
+          <CreatableSelect
+            options={propositosOpciones}
+            value={proposito}
+            onChange={setProposito}
+            onCreateOption={crearProposito}
+            placeholder="Selecciona o escribe un proposito nuevo"
+            formatCreateLabel={(input) => `Crear proposito "${input}"`}
           />
         </div>
 

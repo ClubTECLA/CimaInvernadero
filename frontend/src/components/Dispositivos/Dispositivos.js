@@ -21,6 +21,12 @@ const estadoClases = {
   FALLANDO: "estado-fallando",
 };
 
+const propositoClases = {
+  General: "estado-operativo",
+  Mantenimiento: "estado-mantenimiento",
+  Otro: "estado-inactivo",
+};
+
 function Dispositivos() {
   const { isAuthenticated } = useAuth();
 
@@ -134,6 +140,11 @@ function Dispositivos() {
                     className={`estado-badge ${estadoClases[display?.estado]}`}
                   >
                     {display?.estado}
+                  </span>{" "}
+                  <span
+                    className={`estado-badge ${propositoClases[display?.proposito]}`}
+                  >
+                    {display?.proposito}
                   </span>
                   <div>
                     <h2>{display?.nombre}</h2>

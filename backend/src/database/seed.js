@@ -46,19 +46,30 @@ export async function seed() {
 
     // ─── ESPECIFICACIONES ─────────────────────────────────────
     // Punto de origen: esquina izquierda de la entrada
-    await connection.query(`
+    const [specs] = await connection.query(`
       INSERT INTO especificaciones (largo, ancho, altura) VALUES
         (-10, -10, -10),
         (0.5, 0.5, 1.5)
     `);
-    console.log("✅ Especificaciones insertadas");
+    console.log("✅ Especificaciones insertadas, primer ID:", specs.insertId);
+
+    // ─── PROPOSITO ───────────────────────────────────────────────
+    await connection.query(`
+      INSERT INTO proposito (nombre) VALUES
+        ('General'),
+        ('Mantenimiento')
+    `);
+    console.log("✅ Propósitos insertados");
 
     // ─── DISPOSITIVO ─────────────────────────────────────────
     // specs_id 1, zona_id 5 (Interior), tipo_id 2 (DHT22)
-    await connection.query(`
-      INSERT INTO dispositivo (specs_id, zona_id, tipo_id, estado, nombre) VALUES
-        (2, 5, 2, 'OPERATIVO', 'DHT22-01')
-    `);
+    await connection.query(
+      `
+      INSERT INTO dispositivo (specs_id, zona_id, tipo_id, estado, proposito_id, nombre) VALUES
+        (?, 5, 2, 'OPERATIVO', 1, 'DHT22-01')
+    `,
+      [specs.insertId],
+    );
     console.log("✅ Dispositivo insertado");
 
     // ─── LECTURAS DE PRUEBA ───────────────────────────────────

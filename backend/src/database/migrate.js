@@ -40,6 +40,13 @@ export async function migrate() {
     `);
 
     await connection.query(`
+      CREATE TABLE IF NOT EXISTS proposito (
+        id INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
+        nombre VARCHAR(255) NOT NULL
+      )
+    `);
+
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS dispositivo (
         id        INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
         specs_id  INT,
@@ -66,6 +73,53 @@ export async function migrate() {
         CONSTRAINT fk_lectura_tipo_dato   FOREIGN KEY (tipo_dato_id)   REFERENCES tipo_dato(id)
       )
     `);
+
+    const [columnas] = await connection.query(`
+      SELECT COLUMN_NAME
+      FROM information_schema.COLUMNS
+      WHERE TABLE_NAME = 'dispositivo'
+      AND COLUMN_NAME = 'proposito_id'
+      AND TABLE_SCHEMA = DATABASE()
+    `);
+
+    if (columnas.length === 0) {
+      await connection.query(`
+        ALTER TABLE dispositivo
+        ADD COLUMN proposito_id INT AFTER estado
+      `);
+    }
+
+    await connection.query(`
+      INSERT INTO proposito (id, nombre)
+      SELECT 1, 'General'
+      WHERE NOT EXISTS (SELECT 1 FROM proposito WHERE id = 1)
+    `);
+
+    await connection.query(`
+      UPDATE dispositivo SET proposito_id = 1 WHERE proposito_id IS NULL
+    `);
+
+    await connection.query(`
+      ALTER TABLE dispositivo
+      MODIFY COLUMN proposito_id INT NOT NULL
+    `);
+
+    const [constraints] = await connection.query(`
+      SELECT CONSTRAINT_NAME
+      FROM information_schema.KEY_COLUMN_USAGE
+      WHERE TABLE_NAME = 'dispositivo'
+      AND COLUMN_NAME = 'proposito_id'
+      AND CONSTRAINT_SCHEMA = DATABASE()
+      AND REFERENCED_TABLE_NAME = 'proposito'
+    `);
+
+    if (constraints.length === 0) {
+      await connection.query(`
+        ALTER TABLE dispositivo
+        ADD CONSTRAINT fk_dispositivo_proposito
+        FOREIGN KEY (proposito_id) REFERENCES proposito(id)
+      `);
+    }
 
     await connection.commit();
     console.log("✅ Migración completada");
