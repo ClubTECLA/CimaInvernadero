@@ -101,6 +101,9 @@ function Configuracion() {
               <li>
                 <a href="#datos">Tipos de dato</a>
               </li>
+              <li>
+                <a href="#dispositivo_promedio">Dispositivo de inicio</a>
+              </li>
             </ul>
           </Col>
           <Col className="catalogos-display">
@@ -259,6 +262,39 @@ function Configuracion() {
                     <hr />
                   </div>
                 ))}
+              </div>
+            </Container>
+            <Container
+              className="single-display card-component"
+              id="dispositivo_promedio"
+            >
+              <div className="single-display-title">
+                <h2>Dispositivo de inicio</h2>
+                <p className="fs-6">
+                  Dispositivo del cual se tomara el promedio de lecturas para la
+                  página de inicio
+                </p>
+              </div>
+              <div className="catalogos-table-section catalogos-datos-section">
+                <select
+                  value={
+                    localStorage.getItem("tipo_dispositivo_promedio") || ""
+                  }
+                  onChange={(e) => {
+                    localStorage.setItem(
+                      "tipo_dispositivo_promedio",
+                      e.target.value,
+                    );
+                  }}
+                  className="select-dispositivo"
+                >
+                  <option value="">Todos los tipos de dispositivo</option>
+                  {tipos.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
             </Container>
           </Col>

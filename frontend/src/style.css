@@ -393,7 +393,8 @@ h2 {
 }
 
 .filter select,
-.filter input {
+.filter input,
+.select-dispositivo {
   border-width: 0.1rem;
   border-radius: 0.5rem;
   border-color: var(--negro);

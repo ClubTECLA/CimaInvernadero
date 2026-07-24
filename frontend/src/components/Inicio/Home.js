@@ -18,7 +18,11 @@ function Home() {
 
   useEffect(() => {
     function fetchPromedio() {
-      fetch(`${API_URL}/api/lecturas/promedio`)
+      const tipoId = localStorage.getItem("tipo_dispositivo_promedio") || "";
+      const params = new URLSearchParams();
+      if (tipoId) params.append("tipo_dispositivo_id", tipoId);
+
+      fetch(`${API_URL}/api/lecturas/promedio?${params.toString()}`)
         .then((res) => res.json())
         .then((datos) => {
           const temperatura = datos.datos.find(

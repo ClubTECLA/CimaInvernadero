@@ -221,14 +221,27 @@ router.get("/ultimas", async (req, res) => {
 
 // GET /api/lecturas/promedio -> promedio de las últimas lecturas de todos los dispositivos
 router.get("/promedio", async (req, res) => {
+  const { tipo_dispositivo_id } = req.query;
+
+  const condiciones = ["td.nombre IN ('Temperatura', 'Humedad', 'VPD')"];
+  const valores = [];
+
+  if (tipo_dispositivo_id) {
+    condiciones.push("d.tipo_id = ?");
+    valores.push(tipo_dispositivo_id);
+  }
+
+  const where = `WHERE ${condiciones.join(" AND ")}`;
   try {
-    const [rows] = await pool.query(`
+    const [rows] = await pool.query(
+      `
       SELECT 
         td.nombre AS tipo_dato,
         td.unidad,
         ROUND(AVG(l.dato), 2) AS promedio
       FROM lecturas l
       JOIN tipo_dato td ON l.tipo_dato_id = td.id
+      JOIN dispositivo d ON l.dispositivo_id = d.id
       INNER JOIN (
         SELECT dispositivo_id, tipo_dato_id, MAX(created_at) AS max_fecha
         FROM lecturas
@@ -236,9 +249,11 @@ router.get("/promedio", async (req, res) => {
       ) ult ON ult.dispositivo_id = l.dispositivo_id 
             AND ult.tipo_dato_id = l.tipo_dato_id
             AND ult.max_fecha = l.created_at
-      WHERE td.nombre IN ('Temperatura', 'Humedad', 'VPD')
+      ${where}
       GROUP BY l.tipo_dato_id, td.nombre, td.unidad
-    `);
+    `,
+      valores,
+    );
 
     res.json({ datos: rows });
   } catch (error) {
