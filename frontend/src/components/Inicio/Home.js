@@ -14,25 +14,24 @@ function Home() {
     [],
   );
 
-  const [tipos, setTipos] = useState([]);
+  const [propositos, setPropositos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
-  const [dispositivoPromedio, setDispositivoPromedio] = useState(
-    localStorage.getItem("tipo_dispositivo_promedio") || "",
+  const [propositoPromedio, setPropositoPromedio] = useState(
+    localStorage.getItem("proposito_promedio") || "",
   );
 
   useEffect(() => {
-    fetch(`${API_URL}/api/catalogos/tipos-dispositivo`)
+    fetch(`${API_URL}/api/catalogos/propositos`)
       .then((res) => res.json())
-      .then((datos) => setTipos(datos));
+      .then((datos) => setPropositos(datos));
   }, []);
 
   useEffect(() => {
     function fetchPromedio() {
       const params = new URLSearchParams();
-      if (dispositivoPromedio)
-        params.append("tipo_dispositivo_id", dispositivoPromedio);
+      if (propositoPromedio) params.append("proposito_id", propositoPromedio);
 
       fetch(`${API_URL}/api/lecturas/promedio?${params.toString()}`)
         .then((res) => res.json())
@@ -54,7 +53,7 @@ function Home() {
     fetchPromedio();
     const intervalo = setInterval(fetchPromedio, 120000);
     return () => clearInterval(intervalo);
-  }, [dispositivoPromedio]);
+  }, [propositoPromedio]);
 
   return (
     <section>
@@ -109,18 +108,18 @@ function Home() {
               </div>
               <div>
                 <select
-                  value={dispositivoPromedio}
+                  value={propositoPromedio}
                   onChange={(e) => {
                     const valor = e.target.value;
-                    setDispositivoPromedio(valor);
-                    localStorage.setItem("tipo_dispositivo_promedio", valor);
+                    setPropositoPromedio(valor);
+                    localStorage.setItem("proposito_promedio", valor);
                   }}
                   className="select-dispositivo"
                 >
-                  <option value="">Todos los tipos de dispositivo</option>
-                  {tipos.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.nombre}
+                  <option value="">Todos los propositos</option>
+                  {propositos.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
                     </option>
                   ))}
                 </select>

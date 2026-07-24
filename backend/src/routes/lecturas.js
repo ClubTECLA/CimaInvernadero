@@ -221,14 +221,14 @@ router.get("/ultimas", async (req, res) => {
 
 // GET /api/lecturas/promedio -> promedio de las últimas lecturas de todos los dispositivos
 router.get("/promedio", async (req, res) => {
-  const { tipo_dispositivo_id } = req.query;
+  const { proposito_id } = req.query;
 
   const condiciones = ["td.nombre IN ('Temperatura', 'Humedad', 'VPD')"];
   const valores = [];
 
-  if (tipo_dispositivo_id) {
-    condiciones.push("d.tipo_id = ?");
-    valores.push(tipo_dispositivo_id);
+  if (proposito_id) {
+    condiciones.push("d.proposito_id = ?");
+    valores.push(proposito_id);
   }
 
   const where = `WHERE ${condiciones.join(" AND ")}`;
