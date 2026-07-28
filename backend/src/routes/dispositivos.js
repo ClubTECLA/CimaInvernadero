@@ -290,11 +290,23 @@ router.delete("/:id", verificarToken, async (req, res) => {
       });
     }
 
+    const [dispositivo] = await pool.query(
+      "SELECT specs_id FROM dispositivo WHERE id = ?",
+      [id],
+    );
+
     const [result] = await pool.query("DELETE FROM dispositivo WHERE id = ?", [
       id,
     ]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: `Dispositivo ${id} no encontrado` });
+    }
+
+    if (dispositivo[0]?.specs_id && dispositivo[0]?.specs_id !== 1) {
+      await pool.query(
+        "DELETE FROM especificaciones WHERE id = ?",
+        dispositivo[0].specs_id,
+      );
     }
 
     res.json({ message: `Dispositivo ${id} eliminado correctamente` });

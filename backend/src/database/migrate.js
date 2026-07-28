@@ -16,6 +16,12 @@ export async function migrate() {
     `);
 
     await connection.query(`
+      INSERT INTO especificaciones (id, largo, ancho, altura)
+      SELECT 1, -10, -10, -10
+      WHERE NOT EXISTS (SELECT 1 FROM especificaciones WHERE id = 1)
+    `);
+
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS zona (
         id   INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
         zona VARCHAR(255)
