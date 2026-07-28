@@ -391,6 +391,19 @@ h2 {
   padding-top: 30px;
 }
 
+.filter-section-title {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.filter-section-title button {
+  background-color: var(--blanco);
+  color: red;
+  border-radius: 0.5rem;
+  border-color: red;
+}
+
 .filter {
   display: flex;
   flex-direction: column;

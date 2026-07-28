@@ -80,6 +80,14 @@ function Datos() {
     pagina,
   ]);
 
+  function reiniciarFiltros() {
+    setFiltroDispositivo("");
+    setFiltroTipoDato("");
+    setFiltroZona("");
+    setFiltroFechaInicio("");
+    setFiltroFechaFin("");
+  }
+
   function generarBotonesPagina() {
     const botones = [];
     const rango = 1; // cuántas páginas mostrar a cada lado de la actual
@@ -141,7 +149,10 @@ function Datos() {
         </Container>
 
         <Container className="filter-section data-page-section card-component">
-          <h2>Filtros de búsqueda</h2>
+          <div className="filter-section-title">
+            <h2>Filtros de búsqueda</h2>
+            <button onClick={reiniciarFiltros}>Eliminar filtros</button>
+          </div>
           <Row>
             <Col className="filter">
               <label htmlFor="dispositivo">Dispositivo</label>
