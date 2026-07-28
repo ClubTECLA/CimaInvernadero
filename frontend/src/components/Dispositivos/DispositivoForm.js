@@ -309,6 +309,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
               className="form-control"
               value={largo}
               onChange={(e) => setLargo(e.target.value)}
+              onWheel={(e) => e.target.blur()}
               placeholder="0.0"
               min="0"
               step="0.1"
@@ -321,6 +322,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
               className="form-control"
               value={ancho}
               onChange={(e) => setAncho(e.target.value)}
+              onWheel={(e) => e.target.blur()}
               placeholder="0.0"
               min="0"
               step="0.1"
@@ -333,6 +335,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
               className="form-control"
               value={altura}
               onChange={(e) => setAltura(e.target.value)}
+              onWheel={(e) => e.target.blur()}
               placeholder="0.0"
               min="0"
               step="0.1"
