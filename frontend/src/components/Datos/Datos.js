@@ -153,7 +153,7 @@ function Datos() {
                 <option value="">Todos los dispositivos</option>
                 {dispositivos.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.tipo_dispositivo}
+                    {d.nombre}
                   </option>
                 ))}
               </select>

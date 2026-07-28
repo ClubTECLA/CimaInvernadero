@@ -26,7 +26,6 @@ function Footer() {
                 rel="noreferrer"
                 style={{ color: "white" }}
               >
-                {/* //TODO: Agregar link */}
                 <BsGithub />
               </a>
             </li>
@@ -37,15 +36,16 @@ function Footer() {
                 rel="noreferrer"
                 style={{ color: "white" }}
               >
-                {/* //TODO: Agregar link */}
-
                 <BsFacebook />
               </a>
             </li>
             <li className="social-icons">
-              <a href="/" style={{ color: "white" }}>
-                {/* //TODO: Agregar link */}
-
+              <a
+                href="https://www.instagram.com/tecla.uabc/"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "white" }}
+              >
                 <BsInstagram />
               </a>
             </li>
