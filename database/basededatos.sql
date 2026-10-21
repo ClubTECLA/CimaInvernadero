@@ -16,12 +16,40 @@ CREATE TABLE IF NOT EXISTS especificaciones (
 
 
 -- =====================================================
+-- UBICACIONES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS ubicacion (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL,
+    largo DECIMAL(8,2) NOT NULL,
+    ancho DECIMAL(8,2) NOT NULL,
+    altura DECIMAL(8,2) NOT NULL,
+    descripcion VARCHAR(500) NULL,
+    image_path VARCHAR(255) NULL,
+    map_image_path VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- =====================================================
 -- ZONAS
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS zona (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    zona VARCHAR(255)
+    ubicacion_id INT NOT NULL,
+    zona VARCHAR(255) NOT NULL,
+    descripcion VARCHAR(500) NULL,
+    image_path VARCHAR(255) NULL,
+    largo_inicio DECIMAL(8,3) NULL,
+    largo_fin DECIMAL(8,3) NULL,
+    ancho_inicio DECIMAL(8,3) NULL,
+    ancho_fin DECIMAL(8,3) NULL,
+    altura_inicio DECIMAL(8,3) NULL,
+    altura_fin DECIMAL(8,3) NULL,
+    CONSTRAINT fk_zona_ubicacion FOREIGN KEY (ubicacion_id) REFERENCES ubicacion(id) ON DELETE CASCADE,
+    INDEX idx_zona_ubicacion (ubicacion_id)
 );
 
 
@@ -32,6 +60,8 @@ CREATE TABLE IF NOT EXISTS zona (
 CREATE TABLE IF NOT EXISTS tipo_dispositivo (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(255),
+
+    mac_address VARCHAR(17) NULL,
     descripcion VARCHAR(255),
     image_path VARCHAR(255),
     categoria ENUM('SENSOR', 'ACTUADOR') NOT NULL DEFAULT 'SENSOR',

@@ -1,6 +1,5 @@
 import React from "react";
-import planoInvernadero from "../../Assets/Invernadero_6K.png";
-import { useSiteDimensions } from "../../context/SiteDimensionsContext";
+import { getAssetUrl } from "../../utils/api";
 
 export function zonasConLimites(zonas) {
   return zonas
@@ -17,9 +16,11 @@ export function zonasConLimites(zonas) {
     .sort((a, b) => Number(a.largo_inicio) - Number(b.largo_inicio));
 }
 
-function MapaZonas({ zonas, seleccionadaId, onSeleccionar }) {
+function MapaZonas({ zonas, seleccionadaId, onSeleccionar, imagenPlano, dimensiones }) {
   const zonasMapeadas = zonasConLimites(zonas);
-  const { dimensions, loading } = useSiteDimensions();
+  const dimensions = dimensiones && [dimensiones.largo, dimensiones.ancho].every((valor) => Number.isFinite(Number(valor)))
+    ? { largo: Number(dimensiones.largo), ancho: Number(dimensiones.ancho), altura: Number(dimensiones.altura) }
+    : null;
   const largoSitio = dimensions?.largo;
   const anchoSitio = dimensions?.ancho;
 
@@ -32,14 +33,14 @@ function MapaZonas({ zonas, seleccionadaId, onSeleccionar }) {
         <span className="zone-map-size">
           {dimensions
             ? `${largoSitio.toFixed(2)} × ${anchoSitio.toFixed(2)} m`
-            : loading ? "Cargando medidas…" : "Medidas no disponibles"}
+            : "Medidas no disponibles"}
         </span>
       </div>
       <div
         className="zone-map-canvas"
         style={{
           ...(largoSitio && anchoSitio ? { aspectRatio: `${largoSitio} / ${anchoSitio}` } : {}),
-          backgroundImage: `url(${planoInvernadero})`,
+          backgroundImage: getAssetUrl(imagenPlano) ? `url(${getAssetUrl(imagenPlano)})` : "none",
         }}
       >
         <div className="zone-map-interior">

@@ -3,7 +3,6 @@ import { pool } from "../../db.js";
 
 import { verificarToken } from "../../middleware/auth.js";
 import { zonasSeTraslapan } from "../../utils/zonas.js";
-import { DIMENSIONES_SITIO } from "../../config/sitio.js";
 
 const router = Router();
 const camposLimite = [
@@ -13,7 +12,7 @@ const camposLimite = [
   "ancho_fin",
 ];
 
-function normalizarLimites(body) {
+function normalizarLimites(body, dimensiones) {
   const valores = camposLimite.map((campo) => {
     const valor = body[campo];
     if (valor === "" || valor === null || valor === undefined) return null;
@@ -30,9 +29,9 @@ function normalizarLimites(body) {
   if (valores.some((valor) => valor === null)) {
     return { error: "Para registrar una zona, indique los cuatro límites de largo y ancho" };
   }
-  const maximos = [DIMENSIONES_SITIO.largo, DIMENSIONES_SITIO.largo, DIMENSIONES_SITIO.ancho, DIMENSIONES_SITIO.ancho];
+  const maximos = [dimensiones.largo, dimensiones.largo, dimensiones.ancho, dimensiones.ancho];
   if (valores.some((valor, indice) => valor > maximos[indice])) {
-    return { error: `Los límites no pueden exceder ${DIMENSIONES_SITIO.largo.toFixed(2)} m de largo ni ${DIMENSIONES_SITIO.ancho.toFixed(2)} m de ancho` };
+    return { error: `Los límites no pueden exceder ${Number(dimensiones.largo).toFixed(2)} m de largo ni ${Number(dimensiones.ancho).toFixed(2)} m de ancho` };
   }
   for (let eje = 0; eje < camposLimite.length; eje += 2) {
     if (valores[eje] >= valores[eje + 1]) {
@@ -43,12 +42,13 @@ function normalizarLimites(body) {
   return { valores };
 }
 
-async function buscarTraslape(connection, valores, idIgnorado = null) {
+async function buscarTraslape(connection, valores, ubicacionId, idIgnorado = null) {
   const sql = "SELECT id, zona, largo_inicio, largo_fin, ancho_inicio, ancho_fin, altura_inicio, altura_fin " +
     "FROM zona WHERE largo_inicio IS NOT NULL AND largo_fin IS NOT NULL " +
     "AND ancho_inicio IS NOT NULL AND ancho_fin IS NOT NULL " +
-    (idIgnorado === null ? "" : "AND id <> ?");
-  const [zonas] = await connection.query(sql, idIgnorado === null ? [] : [idIgnorado]);
+    "AND ubicacion_id = ? " + (idIgnorado === null ? "" : "AND id <> ?");
+  const parametros = idIgnorado === null ? [ubicacionId] : [ubicacionId, idIgnorado];
+  const [zonas] = await connection.query(sql, parametros);
   const nuevaZona = Object.fromEntries(camposLimite.map((campo, indice) => [campo, valores[indice]]));
   return zonas.find((zona) => zonasSeTraslapan(nuevaZona, zona)) || null;
 }
@@ -56,7 +56,9 @@ async function buscarTraslape(connection, valores, idIgnorado = null) {
 // GET /api/zona -> todas las zonas
 router.get("/", async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM zona ORDER BY id ASC");
+    const parametros = req.query.ubicacion_id ? [req.query.ubicacion_id] : [];
+    const filtro = req.query.ubicacion_id ? "WHERE z.ubicacion_id = ?" : "";
+    const [rows] = await pool.query(`SELECT z.*, u.nombre AS ubicacion_nombre FROM zona z JOIN ubicacion u ON u.id = z.ubicacion_id ${filtro} ORDER BY z.id ASC`, parametros);
     res.json(rows);
   } catch (error) {
     console.error("Error al consultar las zonas:", error.message);
@@ -81,7 +83,7 @@ router.get("/:id", async (req, res) => {
 
 // POST /api/zona -> crear nueva zona
 router.post("/", verificarToken, async (req, res) => {
-  const { zona } = req.body;
+  const { zona, ubicacion_id = 1, descripcion, image_path } = req.body;
 
   if (!zona) {
     return res.status(400).json({ error: "La zona es requeridos" });
@@ -89,11 +91,13 @@ router.post("/", verificarToken, async (req, res) => {
   if (String(zona).trim().toLowerCase() === "sin zona") {
     return res.status(409).json({ error: "'Sin zona' está reservada como opción predeterminada" });
   }
-  const { valores: limites, error } = normalizarLimites(req.body);
+  const [[ubicacion]] = await pool.query("SELECT id, largo, ancho, altura FROM ubicacion WHERE id = ?", [ubicacion_id]);
+  if (!ubicacion) return res.status(404).json({ error: "Ubicación no encontrada" });
+  const { valores: limites, error } = normalizarLimites(req.body, ubicacion);
   if (error) return res.status(400).json({ error });
 
   try {
-    const traslapada = await buscarTraslape(pool, limites);
+    const traslapada = await buscarTraslape(pool, limites, ubicacion_id);
     if (traslapada) {
       return res.status(409).json({
         error: "Los límites se traslapan con \"" + traslapada.zona + "\". Ajuste los rangos para que las zonas no ocupen el mismo espacio.",
@@ -102,9 +106,9 @@ router.post("/", verificarToken, async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO zona
-       (zona, largo_inicio, largo_fin, ancho_inicio, ancho_fin, altura_inicio, altura_fin)
-       VALUES (?, ?, ?, ?, ?, 0, ?)`,
-      [zona, ...limites, DIMENSIONES_SITIO.altura],
+       (ubicacion_id, zona, descripcion, image_path, largo_inicio, largo_fin, ancho_inicio, ancho_fin, altura_inicio, altura_fin)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+      [ubicacion_id, zona, descripcion ?? null, image_path ?? null, ...limites, ubicacion.altura],
     );
     res.status(201).json({ id: result.insertId, zona });
   } catch (error) {
@@ -116,7 +120,7 @@ router.post("/", verificarToken, async (req, res) => {
 // PATCH /api/zona/:id -> actualizar una zona
 router.patch("/:id", verificarToken, async (req, res) => {
   const { id } = req.params;
-  const { zona } = req.body;
+  const { zona, ubicacion_id = 1, descripcion, image_path } = req.body;
 
   if (!zona) {
     return res.status(400).json({ error: "La zona es requerida" });
@@ -128,11 +132,13 @@ router.patch("/:id", verificarToken, async (req, res) => {
   if (zonaActual && String(zonaActual.zona).trim().toLowerCase() === "sin zona") {
     return res.status(409).json({ error: "La opción predeterminada 'Sin zona' no se puede editar" });
   }
-  const { valores: limites, error } = normalizarLimites(req.body);
+  const [[ubicacion]] = await pool.query("SELECT id, largo, ancho, altura FROM ubicacion WHERE id = ?", [ubicacion_id]);
+  if (!ubicacion) return res.status(404).json({ error: "Ubicación no encontrada" });
+  const { valores: limites, error } = normalizarLimites(req.body, ubicacion);
   if (error) return res.status(400).json({ error });
 
   try {
-    const traslapada = await buscarTraslape(pool, limites, id);
+    const traslapada = await buscarTraslape(pool, limites, ubicacion_id, id);
     if (traslapada) {
       return res.status(409).json({
         error: "Los límites se traslapan con \"" + traslapada.zona + "\". Ajuste los rangos para que las zonas no ocupen el mismo espacio.",
@@ -141,10 +147,11 @@ router.patch("/:id", verificarToken, async (req, res) => {
 
     const [result] = await pool.query(
       `UPDATE zona
-       SET zona = ?, largo_inicio = ?, largo_fin = ?, ancho_inicio = ?,
+       SET ubicacion_id = ?, zona = ?, descripcion = ?, image_path = ?,
+           largo_inicio = ?, largo_fin = ?, ancho_inicio = ?,
            ancho_fin = ?, altura_inicio = 0, altura_fin = ?
        WHERE id = ?`,
-      [zona, ...limites, DIMENSIONES_SITIO.altura, id],
+      [ubicacion_id, zona, descripcion ?? null, image_path ?? null, ...limites, ubicacion.altura, id],
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: `Zona ${id} no encontrada` });

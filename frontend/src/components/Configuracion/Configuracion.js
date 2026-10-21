@@ -4,11 +4,12 @@ import Col from "react-bootstrap/Col";
 import Row from "react-bootstrap/Row";
 
 import { useAuth } from "../../context/AuthContext";
-import { API_URL, fetchJson } from "../../utils/api";
+import { API_URL, fetchJson, getAssetUrl } from "../../utils/api";
 
 import { AiFillEdit, AiFillDelete } from "react-icons/ai";
 
 import ZonasForm from "./ZonasForm";
+import UbicacionesForm from "./UbicacionesForm";
 import TiposForm from "./TiposForm";
 import UnidadForm from "./UnidadForm";
 import MapaZonas, { zonasConLimites } from "./MapaZonas";
@@ -18,6 +19,8 @@ function Configuracion() {
   const { isAuthenticated } = useAuth();
 
   const [zonas, setZonas] = useState([]);
+  const [ubicaciones, setUbicaciones] = useState([]);
+  const [ubicacionSeleccionadaId, setUbicacionSeleccionadaId] = useState(null);
   const [tipos, setTipos] = useState([]);
   const [dato, setDato] = useState([]);
   const [zonaSeleccionadaId, setZonaSeleccionadaId] = useState(null);
@@ -27,6 +30,8 @@ function Configuracion() {
   const [mostrarTipo, setMostrarTipo] = useState(false);
   const [editarTipo, setEditarTipo] = useState(null);
   const [mostrarUnidad, setMostrarUnidad] = useState(false);
+  const [mostrarUbicacion, setMostrarUbicacion] = useState(false);
+  const [editarUbicacion, setEditarUbicacion] = useState(null);
   const [editarUnidad, setEditarUnidad] = useState(null);
   const [error, setError] = useState(null);
 
@@ -38,11 +43,14 @@ function Configuracion() {
     const controller = new AbortController();
 
     Promise.all([
+      fetchJson(`${API_URL}/api/catalogos/ubicaciones`, { signal: controller.signal }),
       fetchJson(`${API_URL}/api/catalogos/zonas`, { signal: controller.signal }),
       fetchJson(`${API_URL}/api/catalogos/tipos-dispositivo`, { signal: controller.signal }),
       fetchJson(`${API_URL}/api/catalogos/tipos-dato`, { signal: controller.signal }),
     ])
-      .then(([zonasDatos, tiposDatos, tiposDatoDatos]) => {
+      .then(([ubicacionesDatos, zonasDatos, tiposDatos, tiposDatoDatos]) => {
+        setUbicaciones(ubicacionesDatos);
+        if (ubicacionesDatos.length && !ubicacionesDatos.some((item) => Number(item.id) === Number(ubicacionSeleccionadaId))) setUbicacionSeleccionadaId(ubicacionesDatos[0].id);
         setZonas(zonasDatos);
         setTipos(tiposDatos);
         setDato(tiposDatoDatos);
@@ -53,13 +61,17 @@ function Configuracion() {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [ubicacionSeleccionadaId]);
 
   function refresh(ruta) {
     fetchJson(`${API_URL}/api/catalogos/${ruta}`)
       .then((datos) => {
         setError(null);
         switch (ruta) {
+          case "ubicaciones":
+            setUbicaciones(datos);
+            if (datos.length && !datos.some((item) => Number(item.id) === Number(ubicacionSeleccionadaId))) setUbicacionSeleccionadaId(datos[0].id);
+            break;
           case "zonas":
             setZonas(datos);
             break;
@@ -76,6 +88,9 @@ function Configuracion() {
       })
       .catch((err) => setError(err.message || "No fue posible actualizar el catálogo"));
   }
+
+  const ubicacionSeleccionada = ubicaciones.find((item) => Number(item.id) === Number(ubicacionSeleccionadaId)) || ubicaciones[0];
+  const zonasVisibles = zonas.filter((item) => !ubicacionSeleccionada || Number(item.ubicacion_id) === Number(ubicacionSeleccionada.id));
 
   async function handleEliminar(id, nombre, ruta) {
     const mensaje = ruta === "zonas"
@@ -109,14 +124,19 @@ function Configuracion() {
           <div className="alert alert-warning" role="alert">{error}</div>
         </div>
       )}
-      {!isAuthenticated && (
-        <Container className="catalogos-auth-notice">
-          <span><strong>Modo consulta</strong><span aria-hidden="true"> · </span>Inicie sesión para agregar, editar o eliminar catálogos.</span>
-        </Container>
-      )}
       <Container className="catalogos-section">
         <Row>
           <Col className="catalogos-display">
+            <Container className="single-display card-component" id="ubicaciones">
+              <div className="single-display-title"><h2>Ubicaciones</h2>{isAuthenticated && <button className="single-display-add" onClick={() => setMostrarUbicacion(true)} aria-label="Agregar ubicación">+</button>}</div>
+              <div className="catalogos-location-toolbar">
+                <select className="form-select" value={ubicacionSeleccionada?.id || ""} onChange={(e) => setUbicacionSeleccionadaId(e.target.value)} aria-label="Ubicación seleccionada">
+                  {ubicaciones.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
+                </select>
+                {ubicacionSeleccionada && isAuthenticated && <div className="single-display-buttons"><button className="single-display-edit" aria-label={`Editar ${ubicacionSeleccionada.nombre}`} onClick={() => { setEditarUbicacion(ubicacionSeleccionada); setMostrarUbicacion(true); }}><AiFillEdit /></button><button className="single-display-delete" aria-label={`Eliminar ${ubicacionSeleccionada.nombre}`} onClick={() => handleEliminar(ubicacionSeleccionada.id, ubicacionSeleccionada.nombre, "ubicaciones")}><AiFillDelete /></button></div>}
+              </div>
+              {ubicacionSeleccionada && <div className="catalogos-location-content"><div className="catalogos-location-details"><span className="catalogos-location-id">ID {ubicacionSeleccionada.id}</span><p className="catalogos-location-description">{ubicacionSeleccionada.descripcion || "Sin descripción"}</p><div className="catalogos-location-measures"><span><strong>Largo</strong>{Number(ubicacionSeleccionada.largo).toFixed(2)} m</span><span><strong>Ancho</strong>{Number(ubicacionSeleccionada.ancho).toFixed(2)} m</span><span><strong>Altura</strong>{Number(ubicacionSeleccionada.altura).toFixed(2)} m</span></div></div><div className="catalogos-location-image-wrap">{ubicacionSeleccionada.image_path ? <img className="catalogos-location-image" src={getAssetUrl(ubicacionSeleccionada.image_path)} alt={`Imagen de ${ubicacionSeleccionada.nombre}`} /> : <div className="catalogos-location-image catalogos-location-image-placeholder" role="img" aria-label={`Sin imagen de ${ubicacionSeleccionada.nombre}`}><span>Sin imagen registrada</span></div>}{!ubicacionSeleccionada.image_path && <small>Agregue una imagen desde editar ubicación.</small>}</div></div>}
+            </Container>
             <Container className="single-display card-component" id="zonas">
               <div className="single-display-title">
                 <h2>Zonas</h2>
@@ -133,14 +153,14 @@ function Configuracion() {
               </div>
               <Row className="g-3 zone-configuration-layout">
                 <Col lg={8}>
-                  <MapaZonas zonas={zonas} seleccionadaId={zonaSeleccionadaId} onSeleccionar={alternarZona} />
+                  <MapaZonas zonas={zonasVisibles} seleccionadaId={zonaSeleccionadaId} onSeleccionar={alternarZona} imagenPlano={ubicacionSeleccionada?.map_image_path} dimensiones={ubicacionSeleccionada} />
                 </Col>
                 <Col lg={4}>
                   <div className="zone-list-card">
-                    <div className="zone-list-heading"><h3>Zonas registradas</h3><span>{zonas.length}</span></div>
+                    <div className="zone-list-heading"><h3>Zonas registradas</h3><span>{zonasVisibles.length}</span></div>
                     <div className="zone-list-items">
-                      {zonas.map((z) => {
-                        const mapIndex = zonasConLimites(zonas).findIndex((item) => Number(item.id) === Number(z.id));
+                      {zonasVisibles.map((z) => {
+                        const mapIndex = zonasConLimites(zonasVisibles).findIndex((item) => Number(item.id) === Number(z.id));
                         const tieneLimites = mapIndex >= 0;
                         const esSinZona = String(z.zona).trim().toLowerCase() === "sin zona";
                         const seleccionada = Number(zonaSeleccionadaId) === Number(z.id);
@@ -284,8 +304,10 @@ function Configuracion() {
         }}
         onGuardado={() => refresh("zonas")}
         componente={editarZona}
-        zonas={zonas}
+        zonas={zonasVisibles}
+        ubicacion={ubicacionSeleccionada}
       />
+      <UbicacionesForm show={mostrarUbicacion} onHide={() => { setMostrarUbicacion(false); setEditarUbicacion(null); }} onGuardado={() => refresh("ubicaciones")} componente={editarUbicacion} />
       <TiposForm
         show={mostrarTipo}
         onHide={() => {

@@ -14,6 +14,29 @@ export async function migrate() {
         altura FLOAT COMMENT 'Altura desde el suelo (metros)'
       )
     `);
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS ubicacion (
+        id INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
+        nombre VARCHAR(255) NOT NULL,
+        largo DECIMAL(8,3) NOT NULL,
+        ancho DECIMAL(8,3) NOT NULL,
+        altura DECIMAL(8,3) NOT NULL,
+        descripcion VARCHAR(500) NULL,
+        image_path VARCHAR(255) NULL,
+        map_image_path VARCHAR(255) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    await connection.query("ALTER TABLE ubicacion MODIFY COLUMN largo DECIMAL(8,2) NOT NULL, MODIFY COLUMN ancho DECIMAL(8,2) NOT NULL, MODIFY COLUMN altura DECIMAL(8,2) NOT NULL");
+    const [imagenPlanoColumna] = await connection.query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ubicacion' AND COLUMN_NAME = 'map_image_path'");
+    if (!imagenPlanoColumna.length) await connection.query("ALTER TABLE ubicacion ADD COLUMN map_image_path VARCHAR(255) NULL AFTER image_path");
+    await connection.query(`
+      INSERT INTO ubicacion (id, nombre, largo, ancho, altura, descripcion, image_path)
+      SELECT 1, 'Invernadero', 9.700, 6.720, 2.550,
+             'Ubicación principal del proyecto', NULL
+      WHERE NOT EXISTS (SELECT 1 FROM ubicacion WHERE id = 1)
+    `);
 
     await connection.query(`
       INSERT INTO especificaciones (id, largo, ancho, altura)
@@ -24,7 +47,10 @@ export async function migrate() {
     await connection.query(`
       CREATE TABLE IF NOT EXISTS zona (
         id   INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
+        ubicacion_id INT NULL,
         zona VARCHAR(255),
+        descripcion VARCHAR(500) NULL,
+        image_path VARCHAR(255) NULL,
         largo_inicio DECIMAL(8,3) NULL,
         largo_fin DECIMAL(8,3) NULL,
         ancho_inicio DECIMAL(8,3) NULL,
@@ -35,6 +61,9 @@ export async function migrate() {
     `);
 
     const columnasZona = [
+      ["ubicacion_id", "INT NULL"],
+      ["descripcion", "VARCHAR(500) NULL"],
+      ["image_path", "VARCHAR(255) NULL"],
       ["largo_inicio", "DECIMAL(8,3) NULL"],
       ["largo_fin", "DECIMAL(8,3) NULL"],
       ["ancho_inicio", "DECIMAL(8,3) NULL"],
@@ -51,6 +80,17 @@ export async function migrate() {
       if (columnas.length === 0) {
         await connection.query(`ALTER TABLE zona ADD COLUMN ${nombre} ${tipo}`);
       }
+    }
+
+    await connection.query("UPDATE zona SET ubicacion_id = 1 WHERE ubicacion_id IS NULL");
+    await connection.query("ALTER TABLE zona MODIFY COLUMN ubicacion_id INT NOT NULL");
+    const [zonaFk] = await connection.query(`
+      SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'zona'
+        AND COLUMN_NAME = 'ubicacion_id' AND REFERENCED_TABLE_NAME = 'ubicacion'
+    `);
+    if (!zonaFk.length) {
+      await connection.query("ALTER TABLE zona ADD CONSTRAINT fk_zona_ubicacion FOREIGN KEY (ubicacion_id) REFERENCES ubicacion(id) ON DELETE CASCADE");
     }
 
     await connection.query(`
@@ -253,6 +293,7 @@ export async function migrate() {
 
     const camposNodo = [
       ["descripcion", "VARCHAR(500) NULL"], ["image_path", "VARCHAR(255) NULL"],
+      ["mac_address", "VARCHAR(17) NULL"],
       ["tipo_alimentacion", "ENUM('BATERIA','CORRIENTE_DIRECTA') NOT NULL DEFAULT 'BATERIA'"],
       ["bateria_quimica", "VARCHAR(80) NULL"], ["bateria_capacidad_mah", "DECIMAL(10,2) NULL"],
       ["bateria_porcentaje", "DECIMAL(5,2) NULL"], ["intervalo_lectura_segundos", "INT NULL"],
@@ -261,6 +302,17 @@ export async function migrate() {
     for (const [nombre, definicion] of camposNodo) {
       const [existe] = await connection.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='dispositivo' AND COLUMN_NAME=?`, [nombre]);
       if (!existe.length) await connection.query(`ALTER TABLE dispositivo ADD COLUMN ${nombre} ${definicion}`);
+    }
+
+    const [indiceMac] = await connection.query(`
+      SELECT INDEX_NAME
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'dispositivo'
+        AND INDEX_NAME = 'uq_dispositivo_mac_address'
+    `);
+    if (!indiceMac.length) {
+      await connection.query("ALTER TABLE dispositivo ADD UNIQUE KEY uq_dispositivo_mac_address (mac_address)");
     }
 
     await connection.commit();

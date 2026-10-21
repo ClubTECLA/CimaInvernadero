@@ -79,7 +79,7 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
   }
 
   return (
-    <Modal show={show} onHide={onHide} size="lg">
+    <Modal show={show} onHide={onHide} size="lg" dialogClassName="tipo-dispositivo-modal">
       <Modal.Header closeButton>
         <Modal.Title>
           {esEdicion
@@ -87,12 +87,13 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
             : "Registrar nuevo tipo de dispositivo"}
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        {error && <div className="alert alert-danger">{error}</div>}
+      <Modal.Body className="tipo-dispositivo-form">
+        {error && <div className="alert alert-danger form-validation-alert" role="alert">{error}</div>}
 
         <div className="form-group mb-3">
-          <label className="form-label fw-bold">Categoría *</label>
+          <label className="form-label fw-bold" htmlFor="device-type-category">Categoría *</label>
           <select
+            id="device-type-category"
             className="form-select"
             value={categoria}
             onChange={(e) => {
@@ -104,20 +105,32 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
             <option value="SENSOR">Sensor</option>
             <option value="ACTUADOR">Actuador</option>
           </select>
-          <small className="text-muted">
-            Los sensores pueden generar uno o varios tipos de dato.
-          </small>
+          <small className="form-text">Define el papel que tendrá este dispositivo dentro del sistema.</small>
+        </div>
+
+        <div className="form-group mb-3">
+          <label className="form-label fw-bold" htmlFor="device-type-name">Nombre del tipo *</label>
+          <input
+            id="device-type-name"
+            type="text"
+            className="form-control"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder={categoria === "SENSOR" ? "Ej: DHT11" : categoria === "ACTUADOR" ? "Ej: Bomba de riego" : "Ej: Nodo ESP32"}
+          />
+          <small className="form-text">Use un nombre breve para identificarlo al asignarlo a un nodo.</small>
         </div>
 
         {categoria === "SENSOR" && (
           <fieldset className="form-group mb-3 tipo-dato-selector">
-            <legend className="form-label fw-bold">Datos que genera *</legend>
-            <p className="tipo-dato-selector-hint">Seleccione las variables que mide este tipo de sensor.</p>
+            <legend className="tipo-dato-selector-heading"><span>Variables que mide *</span><strong>{tiposDatoSeleccionados.length} seleccionadas</strong></legend>
+            <p className="tipo-dato-selector-hint">Marque una o varias variables que este sensor puede entregar.</p>
             <div className="tipo-dato-options">
             {tiposDato.length ? tiposDato.map((tipoDato) => (
               <label className="tipo-dato-option" key={tipoDato.id}>
                 <input
                   type="checkbox"
+                  aria-label={`${tipoDato.nombre}${tipoDato.unidad ? ` (${tipoDato.unidad})` : ""}`}
                   checked={tiposDatoSeleccionados.includes(Number(tipoDato.id))}
                   onChange={(event) => setTiposDatoSeleccionados((actuales) => event.target.checked
                     ? [...new Set([...actuales, Number(tipoDato.id)])]
@@ -133,16 +146,6 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
           </fieldset>
         )}
 
-        <div className="form-group mb-3">
-          <label className="form-label fw-bold">Nombre del tipo *</label>
-          <input
-            type="text"
-            className="form-control"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            placeholder="Ej: DHT22-01"
-          />
-        </div>
       </Modal.Body>
 
       <Modal.Footer>
