@@ -46,11 +46,30 @@ const upload = multer({
   limits: { fileSize: 8 * 1024 * 1024 }, // máximo 8 MB
 });
 
+async function validarImagenReal(req, res, next) {
+  if (!req.file) return next();
+  try {
+    const contenido = await fs.promises.readFile(req.file.path);
+    const esJpeg = contenido.length >= 3 && contenido[0] === 0xff && contenido[1] === 0xd8 && contenido[2] === 0xff;
+    const esPng = contenido.length >= 8 && contenido.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const esWebp = contenido.length >= 12 && contenido.toString("ascii", 0, 4) === "RIFF" && contenido.toString("ascii", 8, 12) === "WEBP";
+    if (!esJpeg && !esPng && !esWebp) {
+      await fs.promises.unlink(req.file.path).catch(() => {});
+      return res.status(400).json({ error: "El archivo no contiene una imagen JPG, PNG o WebP válida" });
+    }
+    return next();
+  } catch (error) {
+    await fs.promises.unlink(req.file.path).catch(() => {});
+    return res.status(400).json({ error: "No fue posible validar la imagen" });
+  }
+}
+
 // POST /api/uploads/dispositivos
 router.post(
   "/dispositivos",
   verificarToken,
   upload.single("imagen"),
+  validarImagenReal,
   (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No se recibió ninguna imagen" });
@@ -59,6 +78,17 @@ router.post(
     // Devuelve la ruta pública donde quedó guardada la imagen
     const ruta = `/uploads/dispositivos/${req.file.filename}`;
     res.status(201).json({ image_path: ruta });
+  },
+);
+
+router.post(
+  "/catalogos",
+  verificarToken,
+  upload.single("imagen"),
+  validarImagenReal,
+  (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No se recibió ninguna imagen" });
+    res.status(201).json({ image_path: `/uploads/dispositivos/${req.file.filename}` });
   },
 );
 
@@ -79,8 +109,10 @@ router.delete("/dispositivos", verificarToken, async (req, res) => {
     const [referencias] = await pool.query(
       `SELECT
         (SELECT COUNT(*) FROM dispositivo WHERE image_path = ?) +
-        (SELECT COUNT(*) FROM tipo_dispositivo WHERE image_path = ?) AS total`,
-      [image_path, image_path],
+        (SELECT COUNT(*) FROM tipo_dispositivo WHERE image_path = ?) +
+        (SELECT COUNT(*) FROM ubicacion WHERE image_path = ?) +
+        (SELECT COUNT(*) FROM zona WHERE image_path = ?) AS total`,
+      [image_path, image_path, image_path, image_path],
     );
     if (Number(referencias[0].total) > 0) {
       return res.status(409).json({ error: "La imagen todavía está asignada" });

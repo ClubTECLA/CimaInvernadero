@@ -31,6 +31,14 @@ function validarUbicacion(ubicacion) {
   return { largo: coordenadas[0], ancho: coordenadas[1], altura: coordenadas[2] };
 }
 
+function normalizarMacAddress(valor) {
+  if (valor === undefined) return undefined;
+  if (valor === null || String(valor).trim() === "") return null;
+  const limpia = String(valor).trim().replace(/[:-]/g, "").toUpperCase();
+  if (!/^[0-9A-F]{12}$/.test(limpia)) return undefined;
+  return limpia.match(/.{2}/g).join(":");
+}
+
 async function buscarZonaPorUbicacion(connection, ubicacion) {
   const [zonas] = await connection.query(
     `SELECT id, zona
@@ -62,6 +70,21 @@ function validarRutaImagen(imagePath) {
 }
 
 const router = Router();
+
+// La dirección MAC es información administrativa y no se expone en el listado público.
+router.get("/nodos/:id/configuracion", verificarToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, mac_address FROM dispositivo WHERE id = ?",
+      [req.params.id],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Nodo no encontrado" });
+    res.json(rows[0]);
+  } catch (error) {
+    console.error("Error al consultar la configuración privada del nodo:", error.message);
+    res.status(500).json({ error: "No fue posible consultar la dirección MAC del nodo" });
+  }
+});
 
 router.get("/actuadores", async (req, res) => {
   try {
@@ -151,7 +174,6 @@ router.put("/nodos/:nodoId/actuadores/:actuadorId/reglas", verificarToken, async
   if (!Array.isArray(reglas) || reglas.length < 1) {
     return res.status(400).json({ error: "Asocia al menos un sensor con límites mínimo y máximo" });
   }
-  if (reglas.length > 1) return res.status(400).json({ error: "Cada actuador puede tener reglas para un solo sensor" });
   if (reglas.some((regla) => !regla ||
     [regla.sensor_id, regla.tipo_dato_id, regla.valor_minimo, regla.valor_maximo, regla.modo]
       .some((valor) => valor === undefined || valor === null || valor === "")
@@ -173,11 +195,11 @@ router.put("/nodos/:nodoId/actuadores/:actuadorId/reglas", verificarToken, async
     regla.valor_minimo >= regla.valor_maximo ||
     !["ACTIVAR_DEBAJO", "ACTIVAR_ENCIMA"].includes(regla.modo)
   )) {
-    return res.status(400).json({ error: "Revisa sensores, valores mínimo/máximo y condición de activación" });
+    return res.status(400).json({ error: "Deben revisarse los sensores, los valores mínimo y máximo, y la condición de activación" });
   }
   const claves = normalizadas.map((regla) => `${regla.sensor_id}:${regla.tipo_dato_id}`);
   if (new Set(claves).size !== claves.length) {
-    return res.status(400).json({ error: "No repitas el mismo sensor y tipo de dato" });
+    return res.status(400).json({ error: "No se permite repetir el mismo dispositivo sensor y tipo de dato en una misma tarea" });
   }
 
   const connection = await pool.getConnection();
@@ -199,20 +221,6 @@ router.put("/nodos/:nodoId/actuadores/:actuadorId/reglas", verificarToken, async
       await connection.rollback();
       return res.status(404).json({ error: "Actuador no encontrado en este nodo" });
     }
-    const [tareaExistente] = await connection.query(`
-      SELECT a.id
-      FROM actuador a
-      JOIN actuador_regla r ON r.actuador_id = a.id
-      WHERE a.dispositivo_id = ?
-        AND a.tipo_dispositivo_id = ?
-        AND a.id <> ?
-      LIMIT 1
-    `, [req.params.nodoId, actuador[0].tipo_dispositivo_id, req.params.actuadorId]);
-    if (tareaExistente.length) {
-      await connection.rollback();
-      return res.status(409).json({ error: "Ya existe una tarea para este tipo de actuador en el nodo" });
-    }
-
     for (const regla of normalizadas) {
       const [sensorDato] = await connection.query(`
         SELECT s.id
@@ -256,14 +264,6 @@ router.post("/nodos/:id/componentes", verificarToken, async (req, res) => {
     const [tipo] = await connection.query("SELECT id, nombre, categoria FROM tipo_dispositivo WHERE id = ?", [tipo_id]);
     if (!tipo.length) { await connection.rollback(); return res.status(404).json({ error: "Tipo de componente no encontrado" }); }
     const tabla = tipo[0].categoria === "ACTUADOR" ? "actuador" : "sensor";
-    const [duplicado] = await connection.query(
-      `SELECT id FROM ${tabla} WHERE dispositivo_id = ? AND tipo_dispositivo_id = ? LIMIT 1`,
-      [req.params.id, tipo[0].id],
-    );
-    if (duplicado.length) {
-      await connection.rollback();
-      return res.status(409).json({ error: `${tipo[0].nombre} ya está asignado a este nodo` });
-    }
     const [result] = await connection.query(
       `INSERT INTO ${tabla} (dispositivo_id, tipo_dispositivo_id, nombre, estado) VALUES (?, ?, ?, ?)`,
       [req.params.id, tipo[0].id, tipo[0].nombre, estado],
@@ -290,28 +290,41 @@ router.patch("/nodos/:nodoId/componentes/:categoria/:id", verificarToken, async 
   if (estado === undefined && tipo_id === undefined && encendido === undefined && controlAutomaticoActivo === undefined) return res.status(400).json({ error: "Indica qué dato deseas actualizar" });
   try {
     if (controlAutomaticoActivo === true) {
+      const [nodo] = await pool.query(`
+        SELECT d.estado,
+               COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) AS ultima_comunicacion
+        FROM dispositivo d
+        LEFT JOIN (
+          SELECT dispositivo_id, MAX(created_at) AS ultima_lectura_at
+          FROM lecturas
+          GROUP BY dispositivo_id
+        ) ultima_lectura ON ultima_lectura.dispositivo_id = d.id
+        WHERE d.id = ?
+      `, [req.params.nodoId]);
+      if (!nodo.length) return res.status(404).json({ error: "Nodo no encontrado" });
+      const ultimaComunicacion = nodo[0].ultima_comunicacion ? new Date(nodo[0].ultima_comunicacion).getTime() : NaN;
+      const sinComunicacion = !Number.isFinite(ultimaComunicacion) || ultimaComunicacion < Date.now() - (60 * 60 * 1000);
+      if (nodo[0].estado !== "OPERATIVO" || sinComunicacion) {
+        return res.status(409).json({ error: "No se puede activar la tarea: el nodo tiene problemas o no se ha comunicado durante la última hora" });
+      }
       const [control] = await pool.query(`
-        SELECT a.estado AS actuador_estado, s.estado AS sensor_estado
+        SELECT a.estado AS actuador_estado,
+               COUNT(r.id) AS total_reglas,
+               SUM(CASE WHEN s.estado IS NULL OR s.estado <> 'OPERATIVO' THEN 1 ELSE 0 END) AS sensores_no_operativos
         FROM actuador a
         LEFT JOIN actuador_regla r ON r.actuador_id = a.id
         LEFT JOIN sensor s ON s.id = r.sensor_id
         WHERE a.id = ? AND a.dispositivo_id = ?
-        LIMIT 1
+        GROUP BY a.id, a.estado
       `, [req.params.id, req.params.nodoId]);
       if (!control.length) return res.status(404).json({ error: "Actuador no encontrado en este nodo" });
       if (control[0].actuador_estado !== "OPERATIVO") return res.status(409).json({ error: "No se puede activar la tarea: el actuador no está operativo" });
-      if (!control[0].sensor_estado) return res.status(409).json({ error: "Configura primero los límites de la tarea" });
-      if (control[0].sensor_estado !== "OPERATIVO") return res.status(409).json({ error: "No se puede activar la tarea: el sensor asociado no está operativo" });
+      if (Number(control[0].total_reglas) === 0) return res.status(409).json({ error: "Configura primero los límites de la tarea" });
+      if (Number(control[0].sensores_no_operativos) > 0) return res.status(409).json({ error: "No se puede activar la tarea: uno o más sensores asociados no están operativos" });
     }
     if (tipo_id !== undefined) {
       const [tipo] = await pool.query("SELECT id, nombre, categoria FROM tipo_dispositivo WHERE id = ?", [tipo_id]);
       if (!tipo.length || tipo[0].categoria !== componente.categoria) return res.status(400).json({ error: "El tipo no corresponde a la categoría del componente" });
-      const [duplicado] = await pool.query(
-        `SELECT id FROM ${componente.tabla}
-         WHERE dispositivo_id = ? AND tipo_dispositivo_id = ? AND id <> ? LIMIT 1`,
-        [req.params.nodoId, tipo_id, req.params.id],
-      );
-      if (duplicado.length) return res.status(409).json({ error: `${tipo[0].nombre} ya está asignado a otro componente de este nodo` });
       if (componente.tabla === "sensor") {
         const [reglasInvalidas] = await pool.query(`
           SELECT COUNT(*) AS total
@@ -387,7 +400,9 @@ router.delete("/nodos/:nodoId/componentes/:categoria/:id", verificarToken, async
   }
 });
 
-// GET /api/dispositivos -> dispositivos con sus especificaciones, zona y tipo
+// GET /api/dispositivos -> dispositivos con sus especificaciones, zona y tipo.
+// Un intervalo que supera tres ciclos configurados se interpreta como una
+// interrupción de comunicación y no se reutiliza como intervalo normal.
 router.get("/", async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -396,8 +411,8 @@ router.get("/", async (req, res) => {
     CASE
       WHEN d.estado IN ('INACTIVO', 'EN MANTENIMIENTO') THEN d.estado
       WHEN d.estado = 'FALLANDO' THEN d.estado
-      WHEN d.ultima_comunicacion IS NULL
-        OR d.ultima_comunicacion < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+      WHEN COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) IS NULL
+        OR COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) < DATE_SUB(NOW(), INTERVAL 1 HOUR)
         THEN 'FALLANDO'
       ELSE d.estado
     END AS estado,
@@ -410,9 +425,10 @@ router.get("/", async (req, res) => {
     intervalo.intervalo_calculado_segundos,
     d.bateria_porcentaje,
     d.bateria_actualizada_at,
-    d.ultima_comunicacion,
+    COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) AS ultima_comunicacion,
     d.created_at,
     d.specs_id,
+    d.zona_id,
     d.image_path AS image_path_nodo,
     d.image_path AS image_path,
     p.nombre AS proposito,
@@ -420,6 +436,7 @@ router.get("/", async (req, res) => {
     e.ancho,
     e.largo,
     z.zona AS zona,
+    z.ubicacion_id AS ubicacion_id,
     t.nombre AS tipo_dispositivo,
     t.categoria AS tipo_categoria,
     t.descripcion
@@ -429,20 +446,37 @@ router.get("/", async (req, res) => {
   LEFT JOIN zona z ON d.zona_id = z.id
   LEFT JOIN tipo_dispositivo t ON d.tipo_id = t.id
   LEFT JOIN (
+    SELECT dispositivo_id, MAX(created_at) AS ultima_lectura_at
+    FROM lecturas
+    GROUP BY dispositivo_id
+  ) ultima_lectura ON ultima_lectura.dispositivo_id = d.id
+  LEFT JOIN (
     SELECT
       dispositivo_id,
       created_at,
-      TIMESTAMPDIFF(
-        SECOND,
-        LEAD(created_at) OVER (
-          PARTITION BY dispositivo_id ORDER BY created_at DESC
-        ),
-        created_at
-      ) AS intervalo_calculado_segundos
+      CASE
+        WHEN intervalo_bruto_segundos <= COALESCE(intervalo_lectura_segundos * 3, 3600)
+          THEN intervalo_bruto_segundos
+        ELSE NULL
+      END AS intervalo_calculado_segundos
     FROM (
-      SELECT DISTINCT dispositivo_id, created_at
-      FROM lecturas
-    ) ciclos
+      SELECT
+        ciclos.dispositivo_id,
+        ciclos.created_at,
+        d2.intervalo_lectura_segundos,
+        TIMESTAMPDIFF(
+          SECOND,
+          LEAD(ciclos.created_at) OVER (
+            PARTITION BY ciclos.dispositivo_id ORDER BY ciclos.created_at DESC
+          ),
+          ciclos.created_at
+        ) AS intervalo_bruto_segundos
+      FROM (
+        SELECT DISTINCT dispositivo_id, created_at
+        FROM lecturas
+      ) ciclos
+      JOIN dispositivo d2 ON d2.id = ciclos.dispositivo_id
+    ) intervalos
   ) intervalo
     ON intervalo.dispositivo_id = d.id
    AND intervalo.created_at = (
@@ -470,8 +504,8 @@ router.get("/:id", async (req, res) => {
         CASE
           WHEN d.estado IN ('INACTIVO', 'EN MANTENIMIENTO') THEN d.estado
           WHEN d.estado = 'FALLANDO' THEN d.estado
-          WHEN d.ultima_comunicacion IS NULL
-            OR d.ultima_comunicacion < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+          WHEN COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) IS NULL
+            OR COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) < DATE_SUB(NOW(), INTERVAL 1 HOUR)
             THEN 'FALLANDO'
           ELSE d.estado
         END AS estado,
@@ -484,7 +518,7 @@ router.get("/:id", async (req, res) => {
         intervalo.intervalo_calculado_segundos,
         d.bateria_porcentaje,
         d.bateria_actualizada_at,
-        d.ultima_comunicacion,
+        COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) AS ultima_comunicacion,
         d.created_at,
         d.specs_id,
         d.image_path AS image_path_nodo,
@@ -503,20 +537,37 @@ router.get("/:id", async (req, res) => {
       LEFT JOIN zona z ON d.zona_id = z.id
       LEFT JOIN tipo_dispositivo t ON d.tipo_id = t.id
       LEFT JOIN (
+        SELECT dispositivo_id, MAX(created_at) AS ultima_lectura_at
+        FROM lecturas
+        GROUP BY dispositivo_id
+      ) ultima_lectura ON ultima_lectura.dispositivo_id = d.id
+      LEFT JOIN (
         SELECT
           dispositivo_id,
           created_at,
-          TIMESTAMPDIFF(
-            SECOND,
-            LEAD(created_at) OVER (
-              PARTITION BY dispositivo_id ORDER BY created_at DESC
-            ),
-            created_at
-          ) AS intervalo_calculado_segundos
+          CASE
+            WHEN intervalo_bruto_segundos <= COALESCE(intervalo_lectura_segundos * 3, 3600)
+              THEN intervalo_bruto_segundos
+            ELSE NULL
+          END AS intervalo_calculado_segundos
         FROM (
-          SELECT DISTINCT dispositivo_id, created_at
-          FROM lecturas
-        ) ciclos
+          SELECT
+            ciclos.dispositivo_id,
+            ciclos.created_at,
+            d2.intervalo_lectura_segundos,
+            TIMESTAMPDIFF(
+              SECOND,
+              LEAD(ciclos.created_at) OVER (
+                PARTITION BY ciclos.dispositivo_id ORDER BY ciclos.created_at DESC
+              ),
+              ciclos.created_at
+            ) AS intervalo_bruto_segundos
+          FROM (
+            SELECT DISTINCT dispositivo_id, created_at
+            FROM lecturas
+          ) ciclos
+          JOIN dispositivo d2 ON d2.id = ciclos.dispositivo_id
+        ) intervalos
       ) intervalo
         ON intervalo.dispositivo_id = d.id
        AND intervalo.created_at = (
@@ -551,9 +602,11 @@ router.post("/nodos", verificarToken, async (req, res) => {
     bateria_capacidad_mah = null,
     ubicacion,
     image_path,
+    mac_address,
   } = req.body;
   const coordenadas = validarUbicacion(ubicacion);
   const rutaImagen = validarRutaImagen(image_path);
+  const macAddress = normalizarMacAddress(mac_address);
   if (!nombre?.trim() || !estado || !coordenadas) {
     return res.status(400).json({
       error: "Nombre, estado y una ubicación válida son requeridos",
@@ -574,10 +627,23 @@ router.post("/nodos", verificarToken, async (req, res) => {
   if (rutaImagen === undefined) {
     return res.status(400).json({ error: "La ruta de imagen del nodo no es válida" });
   }
+  if (mac_address !== undefined && macAddress === undefined) {
+    return res.status(400).json({ error: "La dirección MAC debe tener 12 caracteres hexadecimales" });
+  }
 
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    if (macAddress) {
+      const [macDuplicada] = await connection.query(
+        "SELECT id, nombre FROM dispositivo WHERE mac_address = ? LIMIT 1",
+        [macAddress],
+      );
+      if (macDuplicada.length) {
+        await connection.rollback();
+        return res.status(409).json({ error: `Esa dirección MAC ya está asignada al nodo ${macDuplicada[0].nombre || macDuplicada[0].id}` });
+      }
+    }
     const zona = await buscarZonaPorUbicacion(connection, coordenadas);
     if (tipo_id !== null) {
       const [tipos] = await connection.query(
@@ -608,8 +674,8 @@ router.post("/nodos", verificarToken, async (req, res) => {
     const [result] = await connection.query(
       `INSERT INTO dispositivo
        (specs_id, zona_id, tipo_id, estado, proposito_id, nombre, descripcion, image_path, tipo_alimentacion,
-        bateria_quimica, bateria_capacidad_mah, bateria_porcentaje, bateria_actualizada_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        bateria_quimica, bateria_capacidad_mah, bateria_porcentaje, bateria_actualizada_at, mac_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         ubicacionGuardada.insertId,
         zona?.id ?? null,
@@ -624,6 +690,7 @@ router.post("/nodos", verificarToken, async (req, res) => {
         tipo_alimentacion === "BATERIA" && bateria_capacidad_mah !== "" ? bateria_capacidad_mah : null,
         null,
         null,
+        macAddress,
       ],
     );
     await connection.commit();
@@ -654,11 +721,13 @@ router.patch("/nodos/:id", verificarToken, async (req, res) => {
     bateria_capacidad_mah,
     ubicacion,
     image_path,
+    mac_address,
   } = req.body;
   const coordenadas = ubicacion === undefined ? undefined : validarUbicacion(ubicacion);
   const rutaImagen = Object.hasOwn(req.body, "image_path")
     ? validarRutaImagen(image_path)
     : undefined;
+  const macAddress = normalizarMacAddress(mac_address);
 
   if (coordenadas === null) {
     return res.status(400).json({ error: "La ubicación debe incluir coordenadas válidas" });
@@ -677,6 +746,9 @@ router.patch("/nodos/:id", verificarToken, async (req, res) => {
   }
   if (rutaImagen === undefined && Object.hasOwn(req.body, "image_path")) {
     return res.status(400).json({ error: "La ruta de imagen del nodo no es válida" });
+  }
+  if (mac_address !== undefined && macAddress === undefined) {
+    return res.status(400).json({ error: "La dirección MAC debe tener 12 caracteres hexadecimales" });
   }
   const connection = await pool.getConnection();
   try {
@@ -707,6 +779,18 @@ router.patch("/nodos/:id", verificarToken, async (req, res) => {
       }
       campos.push("descripcion = ?");
       valores.push(typeof descripcion === "string" ? descripcion.trim() || null : null);
+    }
+    if (mac_address !== undefined) {
+      const [macDuplicada] = await connection.query(
+        "SELECT id FROM dispositivo WHERE mac_address = ? AND id <> ? LIMIT 1",
+        [macAddress, id],
+      );
+      if (macDuplicada.length) {
+        await connection.rollback();
+        return res.status(409).json({ error: "Esa dirección MAC ya está asignada a otro nodo" });
+      }
+      campos.push("mac_address = ?");
+      valores.push(macAddress);
     }
     if (tipo_id !== undefined) {
       const [tipos] = await connection.query(

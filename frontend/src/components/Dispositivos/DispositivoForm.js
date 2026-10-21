@@ -26,6 +26,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
   const esEdicion = Boolean(nodoActivoId);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [macAddress, setMacAddress] = useState("");
   const [estado, setEstado] = useState(null);
   const [tipoAlimentacion, setTipoAlimentacion] = useState("BATERIA");
   const [largo, setLargo] = useState("0");
@@ -84,7 +85,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
     valor !== "" && Number.isFinite(Number(valor)) && Number(valor) >= 0,
   ) && dimensionesSitio && Number(largo) <= dimensionesSitio.largo && Number(ancho) <= dimensionesSitio.ancho && Number(altura) <= dimensionesSitio.altura;
   const tiposDisponibles = tiposComponente.filter((tipo) =>
-    !componentes.some((componente) => Number(componente.tipo_id) === Number(tipo.id)),
+    tipo.categoria === "SENSOR" || tipo.categoria === "ACTUADOR",
   );
 
   const cargarComponentes = useCallback(async (id) => {
@@ -121,14 +122,23 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
     if (dispositivo) {
       setNombre(dispositivo.nombre || "");
       setDescripcion(dispositivo.descripcion_nodo || "");
+      setMacAddress("");
       setTipoAlimentacion(dispositivo.tipo_alimentacion || "BATERIA");
+      const estadoGuardado = String(dispositivo.estado || "").toUpperCase();
       setEstado(
-        estadoOpciones.find((e) => e.value === dispositivo.estado) || null,
+        estadoOpciones.find((e) => e.value === estadoGuardado) ||
+          (estadoGuardado === "FALLANDO"
+            ? { value: "FALLANDO", label: "Problemas o fallas (automático)", isDisabled: true }
+            : null),
       );
       setLargo(String(dispositivo.largo ?? 0));
       setAncho(String(dispositivo.ancho ?? 0));
       setAltura(String(dispositivo.altura ?? 0));
       cargarComponentes(dispositivo.id);
+      fetchAuth(`${API_URL}/api/dispositivos/nodos/${dispositivo.id}/configuracion`)
+        .then((res) => leerRespuesta(res, "No fue posible cargar la configuración privada del nodo"))
+        .then((datos) => setMacAddress(datos.mac_address || ""))
+        .catch((errorCarga) => setError(errorCarga.message));
     }
   }, [show, dispositivo, cargarComponentes]);
 
@@ -249,6 +259,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
           body: JSON.stringify({
             nombre,
             descripcion: descripcion.trim() || null,
+            mac_address: esEdicion ? (macAddress.trim() || null) : undefined,
             tipo_alimentacion: tipoAlimentacion,
             bateria_quimica: null,
             bateria_capacidad_mah: null,
@@ -305,6 +316,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
   function limpiarForm() {
     setNombre("");
     setDescripcion("");
+    setMacAddress("");
     setTipoAlimentacion("BATERIA");
     setEstado(null);
     setLargo("0");
@@ -339,6 +351,25 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
           />
         </div>
 
+        {esEdicion && (
+          <div className="form-group mb-3">
+            <label className="form-label fw-bold" htmlFor="node-mac-address">Dirección MAC</label>
+            <input
+              id="node-mac-address"
+              type="text"
+              className="form-control"
+              value={macAddress}
+              onChange={(e) => setMacAddress(e.target.value.toUpperCase())}
+              placeholder="Ej: 24:6F:28:AB:CD:EF"
+              maxLength={17}
+              inputMode="text"
+              autoComplete="off"
+              spellCheck="false"
+            />
+            <div className="form-text">Dato administrativo del nodo. Se guarda con formato hexadecimal.</div>
+          </div>
+        )}
+
         <div className="form-group mb-3">
           <label className="form-label" htmlFor="node-description">Descripción (opcional)</label>
           <textarea
@@ -360,7 +391,13 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
             className={campoError === "estado" ? "is-invalid" : ""}
             options={opcionesEstadoNodo}
             value={estado}
-            onChange={(value) => { setEstado(value); if (campoError === "estado") setCampoError(null); }}
+            onChange={(value) => {
+              if (value?.value === "FALLANDO") return;
+              setEstado(value);
+              if (campoError === "estado") setCampoError(null);
+            }}
+            isOptionDisabled={(option) => option.value === "FALLANDO"}
+            isClearable={false}
             placeholder="Seleccione un estado"
             isValidNewOption={() => false}
           />
@@ -404,8 +441,12 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
           </div>
           <div className="node-power-summary">
             {tipoAlimentacion === "BATERIA" ? <><strong>Batería:</strong> {mostrarPorcentajeBateria(dispositivo?.bateria_porcentaje)} <small>· lectura automática del nodo</small></> : <><strong>Sin batería:</strong> alimentación por corriente directa</>}
-            <span><strong>Intervalo:</strong> pendiente; se estimará con las lecturas recibidas.</span>
           </div>
+        </div>
+
+        <div className="node-location-card node-communication-card">
+          <strong>Comunicación del nodo</strong>
+          <span><strong>Intervalo entre reportes:</strong> pendiente; se estimará con las lecturas recibidas.</span>
         </div>
 
         {nodoActivoId && (
@@ -415,7 +456,7 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
               <span>{componentes.length}</span>
             </div>
             <div className="hardware-note hardware-note--compact" role="note">
-              <strong>Importante:</strong>  Agregarlos aquí solo registra la configuración no el dispositivo o actuador.
+              <strong>Importante:</strong> Agregarlos aquí solo registra la configuración; cada componente recibe un ID propio.
             </div>
             <div className="node-component-add">
               <select className="form-select" value={nuevoTipoComponente} onChange={(e) => setNuevoTipoComponente(e.target.value)} aria-label="Tipo de dispositivo o actuador" disabled={!tiposDisponibles.length || guardandoComponente}>
@@ -427,16 +468,13 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
               </select>
               <button type="button" className="btn btn-success" disabled={!nuevoTipoComponente || guardandoComponente} onClick={agregarComponente}>{guardandoComponente ? "Agregando…" : "Agregar"}</button>
             </div>
-            {!tiposComponente.length ? <small className="text-muted">Primero registre tipos en Configuración.</small> : !tiposDisponibles.length && <small className="text-muted">Todos los tipos disponibles ya están asignados a este nodo.</small>}
+            {!tiposDisponibles.length && <small className="text-muted">Primero registre tipos de sensores o actuadores en Configuración.</small>}
             <div className="node-component-list">
               {componentes.map((item) => (
                 <div className="node-component-item" key={`${item.categoria}-${item.id}`}>
                   <div className="node-component-info"><strong>{item.categoria === "ACTUADOR" ? "Actuador" : "Sensor"}</strong><small>{item.tipos_dato || item.tipo || item.nombre}</small><small className="admin-record-id">ID del dispositivo: {item.id}</small></div>
                   <select className="form-select" value={item.tipo_id || ""} onChange={(e) => actualizarComponente(item, { tipo_id: Number(e.target.value) })} aria-label={`Tipo de ${item.tipo || item.nombre}`}>
-                    {tiposComponente.filter((opcion) => opcion.categoria === item.categoria && (
-                      Number(opcion.id) === Number(item.tipo_id) ||
-                      !componentes.some((otro) => otro.id !== item.id && Number(otro.tipo_id) === Number(opcion.id))
-                    )).map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.nombre}</option>)}
+                    {tiposComponente.filter((opcion) => opcion.categoria === item.categoria).map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.nombre}</option>)}
                   </select>
                   <select className="form-select" value={item.estado} onChange={(e) => actualizarComponente(item, { estado: e.target.value })} aria-label={`Estado de ${item.tipo || item.nombre}`}>
                     {item.estado === "FALLANDO" && <option value="FALLANDO" disabled>Problemas o fallas (automático)</option>}

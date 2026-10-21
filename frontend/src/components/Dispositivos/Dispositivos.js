@@ -43,21 +43,23 @@ function Dispositivos() {
 
   const [display, setDisplay] = useState();
   const [dispositivos, setDispositivos] = useState([]);
+  const [ubicaciones, setUbicaciones] = useState([]);
   const [editarDispositivo, setEditarDispositivo] = useState(null);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroUbicacion, setFiltroUbicacion] = useState("1");
   const carruselRef = useRef(null);
   const [carruselPuedeAnterior, setCarruselPuedeAnterior] = useState(false);
   const [carruselPuedeSiguiente, setCarruselPuedeSiguiente] = useState(false);
 
   const dispositivosFiltrados = useMemo(
     () =>
-      filtroEstado
-        ? dispositivos.filter((dispositivo) => dispositivo.estado === filtroEstado)
-        : dispositivos,
-    [dispositivos, filtroEstado],
+      dispositivos.filter((dispositivo) =>
+        (!filtroEstado || dispositivo.estado === filtroEstado) &&
+        (!filtroUbicacion || String(dispositivo.ubicacion_id) === String(filtroUbicacion))),
+    [dispositivos, filtroEstado, filtroUbicacion],
   );
   const otrosNodos = useMemo(
     () => dispositivosFiltrados.filter((dispositivo) => dispositivo.id !== display?.id),
@@ -168,11 +170,17 @@ function Dispositivos() {
   useEffect(() => {
     let activo = true;
 
-    fetchJson(`${API_URL}/api/dispositivos`)
-      .then((datos) => {
+    Promise.all([
+      fetchJson(`${API_URL}/api/dispositivos`),
+      fetchJson(`${API_URL}/api/catalogos/ubicaciones`),
+    ])
+      .then(([datos, datosUbicaciones]) => {
         if (!activo) return;
         setDispositivos(datos);
-        setDisplay(datos[0]);
+        setUbicaciones(datosUbicaciones);
+        setFiltroUbicacion((actual) => datosUbicaciones.some((ubicacion) => String(ubicacion.id) === String(actual))
+          ? actual
+          : String(datosUbicaciones[0]?.id || ""));
         setError(null);
       })
       .catch((err) => {
@@ -198,11 +206,21 @@ function Dispositivos() {
                 En esta sección se muestran los nodos registrados para el
                 monitoreo y control del sitio
               </p>
-              <div className="hardware-note" role="note">
-                <strong>Importante:</strong> Registrar un nodo aquí solo crea su ficha en la plataforma; no instala ni conecta el equipo.
-              </div>
+              {isAuthenticated && (
+                <div className="hardware-note" role="note">
+                  <strong>Importante:</strong> Registrar un nodo aquí solo crea su ficha en la plataforma; no instala ni conecta el equipo.
+                </div>
+              )}
             </Col>
             <Col xs="auto" className="text-end">
+              <select
+                className="device-status-filter"
+                value={filtroUbicacion}
+                onChange={(event) => setFiltroUbicacion(event.target.value)}
+                aria-label="Filtrar nodos por ubicación"
+              >
+                {ubicaciones.map((ubicacion) => <option key={ubicacion.id} value={ubicacion.id}>{ubicacion.nombre}</option>)}
+              </select>
               <select
                 className="device-status-filter"
                 value={filtroEstado}
