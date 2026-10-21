@@ -3,10 +3,9 @@ import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 
-import { API_URL, fetchJson } from "../../utils/api";
+import { API_URL, fetchJson, getAssetUrl } from "../../utils/api";
 import { useSiteDimensions } from "../../context/SiteDimensionsContext";
 
-import invernadero from "../../Assets/invernadero.png";
 import { FiActivity, FiCpu, FiMapPin } from "react-icons/fi";
 import {
   estadoClases,
@@ -16,7 +15,7 @@ import {
   mostrarPorcentajeBateria,
 } from "../../utils/dispositivoFormatters";
 
-const VENTANA_PROMEDIO_MINUTOS = 30;
+const VENTANA_PROMEDIO_MINUTOS = 60;
 
 function obtenerTonoTipoDato(nombre) {
   let hash = 0;
@@ -31,6 +30,8 @@ function Home() {
   const [lecturas, setLecturas] = useState([]);
 
   const [nodos, setNodos] = useState([]);
+  const [ubicaciones, setUbicaciones] = useState([]);
+  const [ubicacionActual, setUbicacionActual] = useState(null);
   const [nodoSeleccionado, setNodoSeleccionado] = useState(null);
   const solicitudLecturasId = useRef(0);
   const [lecturasNodo, setLecturasNodo] = useState([]);
@@ -38,9 +39,13 @@ function Home() {
   const [errorNodo, setErrorNodo] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+  const dimensionesSeleccionadas = ubicacionActual
+    ? { largo: Number(ubicacionActual.largo), ancho: Number(ubicacionActual.ancho), altura: Number(ubicacionActual.altura) }
+    : dimensionesSitio;
 
-  const nodosConUbicacion = nodos.filter((nodo) => {
-    if (!dimensionesSitio) return false;
+  const nodosDeUbicacion = nodos.filter((nodo) => !ubicacionActual || String(nodo.ubicacion_id) === String(ubicacionActual.id));
+  const nodosConUbicacion = nodosDeUbicacion.filter((nodo) => {
+    if (!dimensionesSeleccionadas) return false;
     const largo = Number(nodo.largo);
     const ancho = Number(nodo.ancho);
     const altura = Number(nodo.altura);
@@ -49,16 +54,24 @@ function Home() {
       nodo.ancho !== null && nodo.ancho !== undefined && nodo.ancho !== "" &&
       nodo.altura !== null && nodo.altura !== undefined && nodo.altura !== "" &&
       Number.isFinite(largo) && Number.isFinite(ancho) && Number.isFinite(altura) &&
-      largo >= 0 && largo <= dimensionesSitio.largo &&
-      ancho >= 0 && ancho <= dimensionesSitio.ancho && altura >= 0
+      largo >= 0 && largo <= dimensionesSeleccionadas.largo &&
+      ancho >= 0 && ancho <= dimensionesSeleccionadas.ancho && altura >= 0
     );
   });
-  const nodosSinUbicacion = nodos.filter((nodo) => !nodosConUbicacion.includes(nodo));
+  const nodosSinUbicacion = nodosDeUbicacion.filter((nodo) => !nodosConUbicacion.includes(nodo));
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchJson(`${API_URL}/api/dispositivos`, { signal: controller.signal })
-      .then((datos) => setNodos(datos.slice().sort((a, b) => a.id - b.id)))
+    Promise.all([
+      fetchJson(`${API_URL}/api/dispositivos`, { signal: controller.signal }),
+      fetchJson(`${API_URL}/api/catalogos/ubicaciones`, { signal: controller.signal }),
+    ])
+      .then(([datos, ubicaciones]) => {
+        setNodos(datos.slice().sort((a, b) => a.id - b.id));
+        setUbicaciones(ubicaciones);
+        setUbicacionActual(ubicaciones[0] || null);
+        if (!ubicaciones.length) setCargando(false);
+      })
       .catch((err) => {
         if (err.name !== "AbortError") setError("No fue posible cargar los nodos");
       });
@@ -103,14 +116,25 @@ function Home() {
     }
   }
 
+  function cambiarUbicacion(id) {
+    const nuevaUbicacion = ubicaciones.find((ubicacion) => String(ubicacion.id) === String(id)) || null;
+    setUbicacionActual(nuevaUbicacion);
+    setCargando(true);
+    solicitudLecturasId.current += 1;
+    setNodoSeleccionado(null);
+    setLecturasNodo([]);
+    setCargandoNodo(false);
+    setErrorNodo(null);
+  }
+
   useEffect(() => {
+    if (!ubicacionActual?.id) return undefined;
     let activo = true;
 
     async function fetchPromedio() {
       try {
-        const datos = await fetchJson(
-          `${API_URL}/api/lecturas/promedio`,
-        );
+        const filtroUbicacion = ubicacionActual?.id ? `?ubicacion_id=${encodeURIComponent(ubicacionActual.id)}` : "";
+        const datos = await fetchJson(`${API_URL}/api/lecturas/promedio${filtroUbicacion}`);
         if (!activo) return;
 
         setLecturas(datos.datos || []);
@@ -128,7 +152,7 @@ function Home() {
       activo = false;
       clearInterval(intervalo);
     };
-  }, []);
+  }, [ubicacionActual?.id]);
 
   return (
     <section>
@@ -142,22 +166,22 @@ function Home() {
             <div className="home-location-selector">
               <span id="home-location-label"><FiMapPin aria-hidden="true" /> Ubicación actual</span>
               <div className="home-location-select-row">
-                <select className="form-select form-select-sm" value="sitio" disabled aria-labelledby="home-location-label" title="La selección de ubicaciones estará disponible próximamente.">
-                  <option value="sitio">Sitio actual</option>
+                <select className="form-select form-select-sm" value={ubicacionActual?.id || ""} onChange={(event) => cambiarUbicacion(event.target.value)} aria-labelledby="home-location-label" title="Seleccionar ubicación">
+                  {ubicaciones.length ? ubicaciones.map((ubicacion) => <option key={ubicacion.id} value={ubicacion.id}>{ubicacion.nombre}</option>) : <option value="">Cargando ubicación…</option>}
                 </select>
               </div>
             </div>
           </div>
           <Row className="g-3 align-items-stretch home-plan-row">
             <Col lg={8}>
-              <div className="home-plan-frame">
+              <div className="home-plan-frame" style={{ backgroundImage: getAssetUrl(ubicacionActual?.map_image_path) ? `url(${getAssetUrl(ubicacionActual.map_image_path)})` : "none" }}>
                 <div className="home-node-layer" aria-label="Nodos del sitio">
                   {nodosConUbicacion.map((nodo) => {
                     const seleccionado = nodoSeleccionado?.id === nodo.id;
                     const estadoNormalizado = nodo.estado?.toUpperCase();
                     const claseEstado = estadoClases[estadoNormalizado] || "estado-inactivo";
-                    const left = Math.min(93, Math.max(7, (Number(nodo.largo) / dimensionesSitio.largo) * 100));
-                    const top = Math.min(93, Math.max(7, (Number(nodo.ancho) / dimensionesSitio.ancho) * 100));
+                    const left = Math.min(93, Math.max(7, (Number(nodo.largo) / dimensionesSeleccionadas.largo) * 100));
+                    const top = Math.min(93, Math.max(7, (Number(nodo.ancho) / dimensionesSeleccionadas.ancho) * 100));
                     return (
                       <button
                         type="button"
@@ -264,7 +288,7 @@ function Home() {
                   <small className="lectura-muestras">{lectura.cantidad_lecturas} lecturas recientes</small>
                 </article>
               )) : (
-                <p className="lecturas-sin-datos">No hay lecturas recibidas durante los últimos {VENTANA_PROMEDIO_MINUTOS} minutos.</p>
+                  <p className="lecturas-sin-datos">No hay lecturas recibidas</p>
               )}
             </div>
           </Container>
@@ -276,23 +300,30 @@ function Home() {
             <Col md={7} className="home-header">
               <h1 className="heading">Descripción del sitio</h1>
               <p>
-                Invernadero detras del 6K de la FCQI, donde se inicio el proyecto.
+                {ubicacionActual?.descripcion || "Sin descripción registrada para la ubicación seleccionada."}
               </p>
               <div className="home-dimension-card home-dimension-main">
                 <span>Medidas del sitio</span>
-                <strong>{dimensionesSitio
-                  ? `${dimensionesSitio.largo.toFixed(2)} × ${dimensionesSitio.ancho.toFixed(2)} × ${dimensionesSitio.altura.toFixed(2)} m`
+                <strong>{ubicacionActual
+                  ? `${Number(ubicacionActual.largo).toFixed(2)} × ${Number(ubicacionActual.ancho).toFixed(2)} × ${Number(ubicacionActual.altura).toFixed(2)} m`
                   : "Medidas no disponibles"}</strong>
                 <small>Largo × ancho × altura</small>
               </div>
             </Col>
             <Col md={5}>
-              <img
-                src={invernadero}
-                alt="Vista de referencia del sitio"
-                className="img-fluid invernadero-img"
-                loading="lazy"
-              />
+              {ubicacionActual?.image_path ? (
+                <img
+                  src={getAssetUrl(ubicacionActual.image_path)}
+                  alt={`Imagen de ${ubicacionActual.nombre}`}
+                  className="img-fluid invernadero-img"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="invernadero-img home-location-image-placeholder" role="img" aria-label={`Sin imagen de ${ubicacionActual?.nombre || "la ubicación seleccionada"}`}>
+                  <FiMapPin aria-hidden="true" />
+                  <span>Sin imagen registrada</span>
+                </div>
+              )}
             </Col>
           </Row>
         </Container>

@@ -197,7 +197,6 @@
   --bs-table-border-color: #40564a;
 }
 
-:root[data-theme="dark"] .catalogos-auth-notice,
 :root[data-theme="dark"] .catalogo-data-associations,
 :root[data-theme="dark"] .admin-record-id,
 :root[data-theme="dark"] .records-total,
@@ -312,17 +311,9 @@
 }
 
 :root[data-theme="dark"] .nodo-list-heading > div > span,
-:root[data-theme="dark"] .nodo-list-pagination,
-:root[data-theme="dark"] .catalogos-auth-notice {
+:root[data-theme="dark"] .nodo-list-pagination {
   color: #c4d5ca;
 }
-
-:root[data-theme="dark"] .catalogos-auth-notice {
-  background: #24372d;
-  border-color: #40564a;
-  border-left-color: #65bd83;
-}
-:root[data-theme="dark"] .catalogos-auth-notice strong { color: #c4ead1; }
 
 :root[data-theme="dark"] .catalogo-dato-unidad {
   color: #c6f0d7;
@@ -440,6 +431,16 @@
   background: #31563f;
 }
 :root[data-theme="dark"] .tipo-dato-selector-hint { color: var(--theme-muted); }
+:root[data-theme="dark"] .home-location-image-placeholder,
+:root[data-theme="dark"] .catalogos-location-image-placeholder {
+  color: #c4ead1;
+  background: linear-gradient(135deg, #1e3a2c, #294b38);
+  border-color: #527a60;
+}
+:root[data-theme="dark"] .tipo-dato-selector-heading strong {
+  color: #d1f1dc;
+  background: #31563f;
+}
 
 :root[data-theme="dark"] .actuator-management-form,
 :root[data-theme="dark"] .actuator-management-list {
@@ -447,6 +448,13 @@
   background: var(--theme-surface);
   border-color: var(--theme-border);
 }
+:root[data-theme="dark"] .actuator-empty {
+  color: #d7e6dc;
+  background: #17211c;
+  border-color: #536b5d;
+}
+:root[data-theme="dark"] .actuator-empty h2 { color: #c4ead1; }
+:root[data-theme="dark"] .actuator-empty p { color: #a9bdb1; }
 :root[data-theme="dark"] .actuator-management-list .section-heading h2,
 :root[data-theme="dark"] .actuator-management-title,
 :root[data-theme="dark"] .actuator-node-group h3 { color: #c4ead1; }
@@ -504,6 +512,29 @@
   border-color: #49574f;
   opacity: 1;
   cursor: not-allowed;
+}
+
+/* Errores de validación: se muestran arriba y quedan suficientemente visibles para ubicar el problema. */
+.form-validation-alert {
+  border-width: 2px;
+  border-left-width: 5px;
+  font-weight: 700;
+  box-shadow: 0 0 0 3px rgba(196, 71, 66, 0.14);
+}
+.form-control.is-invalid,
+.form-select.is-invalid {
+  border-color: #c44742 !important;
+  box-shadow: 0 0 0 0.2rem rgba(196, 71, 66, 0.2) !important;
+}
+:root[data-theme="dark"] .form-validation-alert {
+  color: #ffe4e1;
+  background-color: #4a2524;
+  border-color: #e07a72;
+}
+:root[data-theme="dark"] .form-control.is-invalid,
+:root[data-theme="dark"] .form-select.is-invalid {
+  border-color: #e07a72 !important;
+  box-shadow: 0 0 0 0.2rem rgba(224, 122, 114, 0.25) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

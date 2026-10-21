@@ -32,17 +32,23 @@ export function mostrarIntervaloLectura(segundos) {
 
   const valor = Number(segundos);
   if (!Number.isFinite(valor)) return "Sin dato";
-  const minutos = Math.round((valor / 60) * 10) / 10;
-  const minutosTexto = Number.isInteger(minutos)
-    ? String(minutos)
-    : minutos.toLocaleString("es-MX", { maximumFractionDigits: 1 });
-  return `${minutosTexto} min`;
+  const minutosTotales = Math.max(1, Math.round(valor / 60));
+  if (minutosTotales < 60) {
+    return `${minutosTotales} ${minutosTotales === 1 ? "minuto" : "minutos"}`;
+  }
+
+  const horas = Math.floor(minutosTotales / 60);
+  const minutosRestantes = minutosTotales % 60;
+  const textoHoras = `${horas} ${horas === 1 ? "hora" : "horas"}`;
+  return minutosRestantes
+    ? `${textoHoras} ${minutosRestantes} ${minutosRestantes === 1 ? "minuto" : "minutos"}`
+    : textoHoras;
 }
 
 export function mostrarIntervaloConfigurado(dispositivo) {
   const intervaloObservado = dispositivo?.intervalo_calculado_segundos;
   return intervaloObservado === null || intervaloObservado === undefined || intervaloObservado === ""
-    ? "Pendiente de primera lectura"
+    ? "Pendiente de lectura válida"
     : mostrarIntervaloLectura(intervaloObservado);
 }
 

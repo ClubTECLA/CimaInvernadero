@@ -41,6 +41,21 @@
   aspect-ratio: 16/9;
 }
 
+.home-location-image-placeholder,
+.catalogos-location-image-placeholder {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.45rem;
+  color: #2f7654;
+  background: linear-gradient(135deg, #eef8f1, #dcefe2);
+  border: 1px solid #b9d9c3;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.home-location-image-placeholder svg { width: 2rem; height: 2rem; }
+
 .home-plan-section {
   overflow: hidden;
 }
