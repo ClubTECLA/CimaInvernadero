@@ -131,8 +131,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0 0 1.5rem;
+  gap: 1.5rem;
+  padding: 1.25rem 1.5rem 1.5rem;
   margin: 0;
 }
 
@@ -198,6 +198,11 @@
   transform: translateY(-1px);
 }
 
+.data-page .datos-export-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .datos-export-button:focus-visible,
 .filter-reset-button:focus-visible {
   outline: 3px solid rgba(72, 166, 111, 0.45);
@@ -210,7 +215,8 @@
   align-items: center;
   justify-self: end;
   margin-left: auto;
-  gap: 0.4rem;
+  gap: 0.65rem;
+  margin-right: 0.25rem;
   color: #64756d;
   font-size: 0.85rem;
   white-space: nowrap;
@@ -263,10 +269,12 @@
   .lecturas-title {
     align-items: flex-start;
     flex-wrap: wrap;
+    padding: 1rem 1rem 1.25rem;
   }
 
   .page-size-control {
     justify-self: auto;
+    margin-right: 0;
   }
 
   .pagination-section {

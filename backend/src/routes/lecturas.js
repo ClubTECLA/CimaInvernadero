@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { pool } from "../db.js";
+import ExcelJS from "exceljs";
 
 import { verificarToken } from "../middleware/auth.js";
 import {
@@ -24,17 +25,13 @@ function convertirFechaComparacion(valor, esFinal = false) {
   return Date.parse(valor);
 }
 
-function valorCsv(valor) {
-  if (valor === null || valor === undefined) return "";
-  return `"${String(valor).replace(/"/g, '""')}"`;
-}
-
 // GET /api/lecturas -> todas las lecturas, con filtros opcionales
 router.get("/", async (req, res) => {
   const {
     dispositivo_id,
     tipo_dato_id,
     zona_id,
+    ubicacion_id,
     tipo_dispositivo_id,
     fecha_inicio,
     fecha_fin,
@@ -75,6 +72,10 @@ router.get("/", async (req, res) => {
   if (zona_id !== undefined) {
     condiciones.push("d.zona_id = ?");
     valores.push(zona_id);
+  }
+  if (ubicacion_id !== undefined) {
+    condiciones.push("z.ubicacion_id = ?");
+    valores.push(ubicacion_id);
   }
   if (tipo_dispositivo_id !== undefined) {
     condiciones.push("d.tipo_id = ?");
@@ -205,6 +206,7 @@ router.get("/exportar", async (req, res) => {
     dispositivo_id,
     tipo_dato_id,
     zona_id,
+    ubicacion_id,
     tipo_dispositivo_id,
     fecha_inicio,
     fecha_fin,
@@ -237,6 +239,10 @@ router.get("/exportar", async (req, res) => {
     condiciones.push("d.zona_id = ?");
     valores.push(zona_id);
   }
+  if (ubicacion_id) {
+    condiciones.push("z.ubicacion_id = ?");
+    valores.push(ubicacion_id);
+  }
   if (tipo_dispositivo_id) {
     condiciones.push("d.tipo_id = ?");
     valores.push(tipo_dispositivo_id);
@@ -257,6 +263,7 @@ router.get("/exportar", async (req, res) => {
     const [rows] = await pool.query(
       `
       SELECT 
+        l.id,
         l.dato,
         l.created_at,
         td.nombre AS tipo_dato,
@@ -267,12 +274,14 @@ router.get("/exportar", async (req, res) => {
         CASE WHEN d.specs_id IS NOT NULL AND d.specs_id <> 1 THEN e.largo END AS ubicacion_largo,
         CASE WHEN d.specs_id IS NOT NULL AND d.specs_id <> 1 THEN e.ancho END AS ubicacion_ancho,
         CASE WHEN d.specs_id IS NOT NULL AND d.specs_id <> 1 THEN e.altura END AS ubicacion_altura,
+        u.nombre AS ubicacion,
         z.zona
       FROM lecturas l
       JOIN tipo_dato        td ON l.tipo_dato_id   = td.id
       JOIN dispositivo      d  ON l.dispositivo_id = d.id
       LEFT JOIN especificaciones e ON e.id = d.specs_id
       LEFT JOIN zona        z  ON d.zona_id        = z.id
+      LEFT JOIN ubicacion   u  ON z.ubicacion_id   = u.id
       LEFT JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
       ${where}
       ORDER BY l.created_at DESC
@@ -280,24 +289,106 @@ router.get("/exportar", async (req, res) => {
       valores,
     );
 
-    const columnas = ["Nodo", "Ubicación (largo × ancho × altura, m)", "Zona", "Tipo de dato", "Valor", "Unidad", "Batería actual (%)", "Fecha de lectura"];
-    const encabezado = `${columnas.map(valorCsv).join(",")}\n`;
-    const filas = rows
-      .map((l) => {
-        const tieneUbicacion = l.ubicacion_largo !== null && l.ubicacion_largo !== undefined;
-        const ubicacion = tieneUbicacion
-          ? `${Number(l.ubicacion_largo).toFixed(2)} × ${Number(l.ubicacion_ancho).toFixed(2)} × ${Number(l.ubicacion_altura).toFixed(2)} m`
-          : "Sin ubicación registrada";
-        const bateria = l.tipo_alimentacion === "CORRIENTE_DIRECTA" ? "No aplica" : l.bateria_actual ?? "Sin dato";
-        return [l.dispositivo, ubicacion, l.zona || "Sin zona asignada", l.tipo_dato, l.dato, l.unidad, bateria, new Date(l.created_at).toLocaleString("es-MX")]
-          .map(valorCsv)
-          .join(",");
-      })
-      .join("\n");
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Monitoreo del sitio";
+    workbook.created = new Date();
+    workbook.modified = new Date();
 
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", "attachment; filename=lecturas.csv");
-    res.send("\uFEFF" + encabezado + filas);
+    const lecturasSheet = workbook.addWorksheet("Lecturas", {
+      properties: { defaultRowHeight: 20 },
+      pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    });
+    lecturasSheet.mergeCells("A1:I1");
+    lecturasSheet.getCell("A1").value = "Historial de lecturas";
+    lecturasSheet.getCell("A1").font = { bold: true, size: 18, color: { argb: "FF234A35" } };
+    lecturasSheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFB7CDBB" } };
+    lecturasSheet.getCell("A1").alignment = { vertical: "middle", horizontal: "left" };
+    lecturasSheet.getRow(1).height = 32;
+    lecturasSheet.mergeCells("A2:I2");
+    lecturasSheet.getCell("A2").value = `Generado el ${new Date().toLocaleString("es-MX")}`;
+    lecturasSheet.getCell("A2").font = { italic: true, color: { argb: "FF557166" } };
+    const ubicacionesInforme = [...new Set(rows.map((l) => l.ubicacion).filter(Boolean))];
+    const ubicacionInforme = ubicacionesInforme.length === 0
+      ? "Sin ubicación registrada"
+      : ubicacionesInforme.length === 1 ? ubicacionesInforme[0] : "Varias ubicaciones";
+    lecturasSheet.mergeCells("A3:I3");
+    lecturasSheet.getCell("A3").value = `Ubicación: ${ubicacionInforme}`;
+    lecturasSheet.getCell("A3").font = { bold: true, color: { argb: "FF3F7054" } };
+    lecturasSheet.mergeCells("A4:I4");
+    lecturasSheet.getCell("A4").value = `Registros exportados: ${rows.length.toLocaleString("es-MX")}`;
+    lecturasSheet.getCell("A4").font = { bold: true, color: { argb: "FF3F7054" } };
+
+    const columnas = [
+      "ID de lectura", "Zona", "Nodo", "Tipo de dato", "Valor",
+      "Unidad", "Batería (%)", "Fecha y hora", "Posición del nodo (m)",
+    ];
+    const filas = rows.map((l) => {
+      const tienePosicion = l.ubicacion_largo !== null && l.ubicacion_largo !== undefined;
+      const posicion = tienePosicion
+        ? `${Number(l.ubicacion_largo).toFixed(2)} × ${Number(l.ubicacion_ancho).toFixed(2)} × ${Number(l.ubicacion_altura).toFixed(2)}`
+        : "Sin posición registrada";
+      const bateria = l.tipo_alimentacion === "CORRIENTE_DIRECTA"
+        ? "No aplica"
+        : l.bateria_actual === null || l.bateria_actual === undefined || l.bateria_actual === ""
+          ? "Sin dato"
+          : Number(l.bateria_actual);
+      return [
+        l.id, l.zona || "Sin zona asignada", l.dispositivo, l.tipo_dato,
+        Number(l.dato), l.unidad, bateria, new Date(l.created_at), posicion,
+      ];
+    });
+
+    const encabezadoLecturas = lecturasSheet.getRow(6);
+    encabezadoLecturas.values = columnas;
+    encabezadoLecturas.height = 24;
+    encabezadoLecturas.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FF234A35" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFC7D9B5" } };
+      cell.alignment = { vertical: "middle", horizontal: "left" };
+      cell.border = { bottom: { style: "thin", color: { argb: "FF9DBB8A" } } };
+    });
+    filas.forEach((fila, indice) => {
+      const row = lecturasSheet.addRow(fila);
+      row.alignment = { vertical: "middle" };
+      if (indice % 2 === 1) {
+        row.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F6E8" } };
+        });
+      }
+    });
+    lecturasSheet.views = [{ state: "frozen", ySplit: 6 }];
+    [14, 22, 18, 22, 12, 12, 15, 22, 25].forEach((width, index) => {
+      lecturasSheet.getColumn(index + 1).width = width;
+    });
+    lecturasSheet.getColumn(6).numFmt = "0.00";
+    lecturasSheet.getColumn(7).numFmt = "0.00";
+    lecturasSheet.getColumn(8).numFmt = "dd/mm/yyyy hh:mm:ss";
+    lecturasSheet.eachRow((row, rowNumber) => {
+      if (rowNumber >= 6) row.alignment = { vertical: "middle" };
+    });
+
+    const resumen = workbook.addWorksheet("Resumen");
+    resumen.mergeCells("A1:B1");
+    resumen.getCell("A1").value = "Resumen de la exportación";
+    resumen.getCell("A1").font = { bold: true, size: 18, color: { argb: "FF234A35" } };
+    resumen.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFB7CDBB" } };
+    resumen.getRow(1).height = 32;
+    resumen.addRow(["Indicador", "Resultado"]);
+    resumen.addRow(["Lecturas exportadas", rows.length]);
+    resumen.addRow(["Cantidad de dispositivos", new Set(rows.map((l) => l.dispositivo)).size]);
+    resumen.addRow(["Tipos de dato incluidos", new Set(rows.map((l) => l.tipo_dato)).size]);
+    ["A2", "B2"].forEach((celda) => {
+      resumen.getCell(celda).font = { bold: true, color: { argb: "FF234A35" } };
+      resumen.getCell(celda).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFC7D9B5" } };
+    });
+    resumen.columns = [{ width: 28 }, { width: 24 }];
+    resumen.views = [{ state: "frozen", ySplit: 2 }];
+
+    const archivo = await workbook.xlsx.writeBuffer();
+    const selloFecha = new Date().toISOString().slice(0, 19).replace("T", "_").replace(/:/g, "-");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename=lecturas_invernadero_${selloFecha}.xlsx`);
+    res.send(Buffer.from(archivo));
   } catch (error) {
     console.error("Error al exportar:", error.message);
     res.status(500).json({ error: "Error al exportar las lecturas" });
@@ -346,14 +437,23 @@ router.get("/ultimas", async (req, res) => {
 
 // GET /api/lecturas/promedio -> promedio de lecturas recientes por tipo de dato
 router.get("/promedio", async (req, res) => {
-  const { proposito_id } = req.query;
+  const { proposito_id, ubicacion_id } = req.query;
 
-  const condiciones = ["l.created_at >= NOW() - INTERVAL 30 MINUTE"];
+  const condiciones = ["l.created_at >= NOW() - INTERVAL 60 MINUTE"];
   const valores = [];
 
   if (proposito_id) {
     condiciones.push("d.proposito_id = ?");
     valores.push(proposito_id);
+  }
+  const tieneFiltroUbicacion = ubicacion_id !== undefined && ubicacion_id !== "";
+  const ubicacionId = Number(ubicacion_id);
+  if (tieneFiltroUbicacion && (!Number.isInteger(ubicacionId) || ubicacionId < 1)) {
+    return res.status(400).json({ error: "La ubicación seleccionada no es válida" });
+  }
+  if (tieneFiltroUbicacion) {
+    condiciones.push("EXISTS (SELECT 1 FROM zona z_filtro WHERE z_filtro.id = d.zona_id AND z_filtro.ubicacion_id = ?)");
+    valores.push(ubicacionId);
   }
 
   const where = `WHERE ${condiciones.join(" AND ")}`;
@@ -369,6 +469,7 @@ router.get("/promedio", async (req, res) => {
       FROM lecturas l
       JOIN tipo_dato td ON l.tipo_dato_id = td.id
       JOIN dispositivo d ON l.dispositivo_id = d.id
+      LEFT JOIN zona z ON d.zona_id = z.id
       ${where}
       GROUP BY td.id, td.nombre, td.unidad
     `,
@@ -383,12 +484,12 @@ router.get("/promedio", async (req, res) => {
 });
 
 // POST /api/lecturas -> recibe el payload del gateway después de ESP-NOW.
-// La batería es opcional. El intervalo real se calcula en el backend con
-// las dos últimas lecturas del mismo dispositivo; ya no se confía en un
-// intervalo enviado por el nodo.
-// { dispositivo_id, bateria_porcentaje, lecturas: [...] }
+// La batería y el intervalo configurado son opcionales. El intervalo real
+// se calcula en el backend con lecturas consecutivas válidas; los huecos
+// largos de comunicación se excluyen del cálculo.
+// { dispositivo_id, bateria_porcentaje, intervalo_lectura_segundos, lecturas: [...] }
 router.post("/", async (req, res) => {
-  const { dispositivo_id, lecturas, bateria_porcentaje } = req.body;
+  const { dispositivo_id, lecturas, bateria_porcentaje, intervalo_lectura_segundos: intervaloRecibido } = req.body;
 
   if (
     bateria_porcentaje !== undefined &&
@@ -399,6 +500,15 @@ router.post("/", async (req, res) => {
     if (!Number.isFinite(bateria) || bateria < 0 || bateria > 100) {
       return res.status(400).json({
         error: "bateria_porcentaje debe estar entre 0 y 100",
+      });
+    }
+  }
+
+  if (intervaloRecibido !== undefined && intervaloRecibido !== null && intervaloRecibido !== "") {
+    const intervalo = Number(intervaloRecibido);
+    if (!Number.isInteger(intervalo) || intervalo < 5 || intervalo > 86400) {
+      return res.status(400).json({
+        error: "intervalo_lectura_segundos debe ser un número entero entre 5 y 86400",
       });
     }
   }
@@ -477,6 +587,9 @@ router.post("/", async (req, res) => {
           ? null
           : bateria_porcentaje;
     const bateriaRecibida = dispositivo[0].tipo_alimentacion === "BATERIA" && bateria_porcentaje !== undefined;
+    const intervaloActualizado = intervaloRecibido === undefined || intervaloRecibido === null || intervaloRecibido === ""
+      ? null
+      : Number(intervaloRecibido);
 
     const valores = lecturas.map((l) => [
       l.dato,
@@ -494,7 +607,8 @@ router.post("/", async (req, res) => {
 
     await connection.query(
       `UPDATE dispositivo
-       SET bateria_porcentaje = ?,
+       SET intervalo_lectura_segundos = COALESCE(?, intervalo_lectura_segundos),
+           bateria_porcentaje = ?,
            bateria_actualizada_at = CASE
              WHEN ? = 0 THEN bateria_actualizada_at
              WHEN ? IS NULL THEN NULL
@@ -503,6 +617,7 @@ router.post("/", async (req, res) => {
            ultima_comunicacion = NOW()
        WHERE id = ?`,
       [
+        intervaloActualizado,
         bateriaActualizada,
         bateriaRecibida ? 1 : 0,
         bateriaActualizada,

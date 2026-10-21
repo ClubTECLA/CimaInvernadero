@@ -26,6 +26,7 @@ function Datos() {
   const [dispositivos, setDispositivos] = useState([]);
   const [tiposDato, setTiposDato] = useState([]);
   const [zonas, setZonas] = useState([]);
+  const [ubicaciones, setUbicaciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [exportando, setExportando] = useState(false);
   const [error, setError] = useState(null);
@@ -37,6 +38,7 @@ function Datos() {
   const [filtroDispositivo, setFiltroDispositivo] = useState("");
   const [filtroTipoDato, setFiltroTipoDato] = useState("");
   const [filtroZona, setFiltroZona] = useState("");
+  const [filtroUbicacion, setFiltroUbicacion] = useState("1");
   const [filtroFechaInicio, setFiltroFechaInicio] = useState("");
   const [filtroFechaFin, setFiltroFechaFin] = useState("");
   const hayFiltros = Boolean(
@@ -46,6 +48,9 @@ function Datos() {
       filtroFechaInicio ||
       filtroFechaFin,
   );
+  const zonasDeUbicacion = zonas.filter((zona) => !filtroUbicacion || String(zona.ubicacion_id) === String(filtroUbicacion));
+  const idsZonasDeUbicacion = new Set(zonasDeUbicacion.map((zona) => String(zona.id)));
+  const dispositivosDeUbicacion = dispositivos.filter((dispositivo) => !filtroUbicacion || idsZonasDeUbicacion.has(String(dispositivo.zona_id)));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -60,11 +65,16 @@ function Datos() {
       fetchJson(`${API_URL}/api/catalogos/zonas`, {
         signal: controller.signal,
       }),
+      fetchJson(`${API_URL}/api/catalogos/ubicaciones`, {
+        signal: controller.signal,
+      }),
     ])
-      .then(([datosDispositivos, datosTipos, datosZonas]) => {
+      .then(([datosDispositivos, datosTipos, datosZonas, datosUbicaciones]) => {
         setDispositivos(datosDispositivos);
         setTiposDato(datosTipos);
         setZonas(datosZonas);
+        setUbicaciones(datosUbicaciones);
+        if (datosUbicaciones.length) setFiltroUbicacion((actual) => datosUbicaciones.some((item) => String(item.id) === String(actual)) ? actual : String(datosUbicaciones[0].id));
       })
       .catch((err) => {
         if (err.name !== "AbortError") {
@@ -83,6 +93,7 @@ function Datos() {
     filtroZona,
     filtroFechaInicio,
     filtroFechaFin,
+    filtroUbicacion,
   ]);
 
   useEffect(() => {
@@ -95,6 +106,7 @@ function Datos() {
       if (filtroDispositivo) params.append("dispositivo_id", filtroDispositivo);
       if (filtroTipoDato) params.append("tipo_dato_id", filtroTipoDato);
       if (filtroZona) params.append("zona_id", filtroZona);
+      if (filtroUbicacion) params.append("ubicacion_id", filtroUbicacion);
       if (filtroFechaInicio) params.append("fecha_inicio", fechaHoraParaApi(filtroFechaInicio));
       if (filtroFechaFin) params.append("fecha_fin", fechaHoraParaApi(filtroFechaFin, true));
       params.append("page", pagina);
@@ -128,6 +140,7 @@ function Datos() {
     filtroZona,
     filtroFechaInicio,
     filtroFechaFin,
+    filtroUbicacion,
     pagina,
     filasPorPagina,
   ]);
@@ -165,12 +178,15 @@ function Datos() {
     if (filtroDispositivo) params.append("dispositivo_id", filtroDispositivo);
     if (filtroTipoDato) params.append("tipo_dato_id", filtroTipoDato);
     if (filtroZona) params.append("zona_id", filtroZona);
+    if (filtroUbicacion) params.append("ubicacion_id", filtroUbicacion);
     if (filtroFechaInicio) params.append("fecha_inicio", fechaHoraParaApi(filtroFechaInicio));
     if (filtroFechaFin) params.append("fecha_fin", fechaHoraParaApi(filtroFechaFin, true));
     return params;
   }
 
   async function handleExportar() {
+    if (cargando || totalRegistros === 0) return;
+
     const params = obtenerParametrosExportacion();
     setExportando(true);
     setError(null);
@@ -189,7 +205,8 @@ function Datos() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "lecturas.csv";
+      const selloFecha = new Date().toISOString().slice(0, 19).replace("T", "_").replace(/:/g, "-");
+      a.download = `lecturas_invernadero_${selloFecha}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -215,10 +232,14 @@ function Datos() {
               <button
                 className="add-button datos-export-button"
                 onClick={handleExportar}
-                disabled={exportando}
-                title="Descargue las lecturas con los filtros seleccionados"
+                disabled={cargando || exportando || totalRegistros === 0}
+                title={
+                  totalRegistros === 0
+                    ? "No hay lecturas para exportar"
+                    : "Descargue las lecturas con los filtros seleccionados"
+                }
               >
-                <CiExport /> {exportando ? "Exportando…" : "Exportar CSV"}
+                <CiExport /> {exportando ? "Preparando Excel…" : "Exportar Excel"}
               </button>
             </Col>
           </Row>
@@ -233,6 +254,12 @@ function Datos() {
           </div>
           <Row className="filter-fields-row">
             <Col className="filter">
+              <label htmlFor="ubicacion">Ubicación</label>
+              <select id="ubicacion" onChange={(e) => { setFiltroUbicacion(e.target.value); setFiltroZona(""); }} value={filtroUbicacion}>
+                {ubicaciones.map((ubicacion) => <option key={ubicacion.id} value={ubicacion.id}>{ubicacion.nombre}</option>)}
+              </select>
+            </Col>
+            <Col className="filter">
               <label htmlFor="dispositivo">Nodo</label>
               <select
                 id="dispositivo"
@@ -240,7 +267,7 @@ function Datos() {
                 value={filtroDispositivo}
               >
                 <option value="">Todos los nodos</option>
-                {ordenarPorNombre(dispositivos, "nombre").map((d) => (
+                {ordenarPorNombre(dispositivosDeUbicacion, "nombre").map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.nombre}
                   </option>
@@ -270,7 +297,7 @@ function Datos() {
                 value={filtroZona}
               >
                 <option value="">Todas las zonas</option>
-                {ordenarPorNombre(zonas, "zona").map((t) => (
+                {ordenarPorNombre(zonasDeUbicacion, "zona").map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.zona}
                   </option>
