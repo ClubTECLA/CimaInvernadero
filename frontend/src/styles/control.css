@@ -309,10 +309,16 @@
 .actuator-rule-summary { display: grid; gap: 0.45rem; margin: 0.75rem 0 0; padding: 0; list-style: none; }
 .actuator-rule-summary li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.3rem 1rem; padding: 0.55rem 0.7rem; border-radius: 0.6rem; background: #f2f8f3; color: #456052; font-size: 0.8rem; }
 .actuator-rule-summary strong { color: #214438; }
+.actuator-rule-summary-guidance { margin: 0.75rem 0 0; color: #52665b; font-size: 0.8rem; font-weight: 600; }
+.actuator-rule-sensor-status { display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 600; }
+.actuator-rule-sensor-status svg { flex: 0 0 auto; }
+.actuator-rule-sensor-status--problemas { color: #a53a35; }
+.actuator-rule-sensor-status--mantenimiento { color: #8a681f; }
+.actuator-rule-sensor-status--inactivo { color: #65736d; }
 .actuator-rule-guidance { display: block; margin-top: 0.65rem; line-height: 1.45; }
 .actuator-rule-empty { margin: 0.65rem 0 0; color: #85612b; font-size: 0.82rem; }
 .actuator-rule-error, .actuator-rule-success { margin: 0.6rem 0 0; font-size: 0.8rem; }
-.actuator-rule-error { color: #a53a35; }
+.actuator-rule-error { margin-top: 0.7rem; padding: 0.55rem 0.7rem; border: 1px solid #e0a3a0; border-left: 3px solid #c44742; border-radius: 0.55rem; background: #fff1f0; color: #963632; font-weight: 600; line-height: 1.4; }
 .actuator-rule-success { color: #227257; }
 
 .sensor-section {

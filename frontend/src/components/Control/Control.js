@@ -69,6 +69,8 @@ function obtenerEstadoComunicacion(nodo, ahora) {
 function Control() {
   const { isAuthenticated } = useAuth();
   const [nodos, setNodos] = useState([]);
+  const [ubicaciones, setUbicaciones] = useState([]);
+  const [filtroUbicacion, setFiltroUbicacion] = useState("1");
   const [tiposDispositivo, setTiposDispositivo] = useState([]);
   const [tiposDato, setTiposDato] = useState([]);
   const [componentesPorNodo, setComponentesPorNodo] = useState({});
@@ -83,22 +85,28 @@ function Control() {
     return () => window.clearInterval(reloj);
   }, []);
 
+  const nodosFiltrados = useMemo(
+    () => nodos.filter((nodo) => !filtroUbicacion || String(nodo.ubicacion_id) === String(filtroUbicacion)),
+    [nodos, filtroUbicacion],
+  );
   const actuadores = useMemo(
-    () => Object.values(componentesPorNodo).flat().filter((item) => item.categoria === "ACTUADOR"),
-    [componentesPorNodo],
+    () => nodosFiltrados.flatMap((nodo) => (componentesPorNodo[nodo.id] || []).filter((item) => item.categoria === "ACTUADOR")),
+    [componentesPorNodo, nodosFiltrados],
   );
   const cargar = useCallback(async () => {
     setCargando(true);
     setError("");
     try {
-      const [nodosRespuesta, tiposRespuesta, tiposDatoRespuesta] = await Promise.all([
+      const [nodosRespuesta, tiposRespuesta, tiposDatoRespuesta, ubicacionesRespuesta] = await Promise.all([
         fetch(`${API_URL}/api/dispositivos`),
         fetch(`${API_URL}/api/catalogos/tipos-dispositivo`),
         fetch(`${API_URL}/api/catalogos/tipos-dato`),
+        fetch(`${API_URL}/api/catalogos/ubicaciones`),
       ]);
       const listaNodos = await leerRespuesta(nodosRespuesta, "No fue posible cargar los nodos");
       const listaTipos = await leerRespuesta(tiposRespuesta, "No fue posible cargar los tipos");
       const listaTiposDato = await leerRespuesta(tiposDatoRespuesta, "No fue posible cargar los tipos de dato");
+      const listaUbicaciones = await leerRespuesta(ubicacionesRespuesta, "No fue posible cargar las ubicaciones");
       const mapa = {};
       await Promise.all(listaNodos.map(async (nodo) => {
         const respuesta = await fetch(`${API_URL}/api/dispositivos/nodos/${nodo.id}/componentes`);
@@ -113,6 +121,10 @@ function Control() {
         reglas[actuador.id] = await leerRespuesta(respuesta, `No fue posible cargar las reglas de ${actuador.tipo || actuador.nombre}`);
       }));
       setNodos(listaNodos);
+      setUbicaciones(listaUbicaciones);
+      setFiltroUbicacion((actual) => listaUbicaciones.some((ubicacion) => String(ubicacion.id) === String(actual))
+        ? actual
+        : String(listaUbicaciones[0]?.id || ""));
       setTiposDispositivo(listaTipos);
       setTiposDato(listaTiposDato);
       setComponentesPorNodo(mapa);
@@ -154,20 +166,24 @@ function Control() {
         {mensaje && <div className="alert alert-success py-2">{mensaje}</div>}
 
         <div className="actuator-management-list">
-          <div className="section-heading"><h2>Asignados a nodos</h2><span className="sensor-count">{actuadores.length}</span></div>
+          <div className="section-heading">
+            <h2>Asignados a nodos</h2>
+            <div className="d-flex align-items-center gap-2">
+              <label htmlFor="actuator-location-filter" className="visually-hidden">Ubicación</label>
+              <select id="actuator-location-filter" className="device-status-filter" value={filtroUbicacion} onChange={(event) => setFiltroUbicacion(event.target.value)}>
+                {ubicaciones.map((ubicacion) => <option key={ubicacion.id} value={ubicacion.id}>{ubicacion.nombre}</option>)}
+              </select>
+              <span className="sensor-count">{actuadores.length}</span>
+            </div>
+          </div>
           {cargando ? <p className="text-muted">Cargando…</p> : actuadores.length ? (
-            nodos.map((nodo) => {
+            nodosFiltrados.map((nodo) => {
               const delNodo = (componentesPorNodo[nodo.id] || []).filter((item) => item.categoria === "ACTUADOR");
               if (!delNodo.length) return null;
               return <section className="actuator-node-group" key={nodo.id}>
                 <h3>{nodo.nombre}<small>{nodo.zona || "Sin zona asignada"}</small></h3>
                 {delNodo.map((actuador) => {
                   const estadoComunicacion = obtenerEstadoComunicacion(nodo, ahora);
-                  const tareaDuplicada = delNodo.some((otro) =>
-                    Number(otro.id) !== Number(actuador.id) &&
-                    Number(otro.tipo_id) === Number(actuador.tipo_id) &&
-                    (reglasPorActuador[otro.id] || []).length > 0,
-                  );
                   return <article className="actuator-management-row" key={actuador.id}>
                   <span className="actuator-management-icon"><FiToggleRight /></span>
                   <div className="actuator-management-info"><strong>{actuador.tipo || actuador.nombre}</strong></div>
@@ -188,7 +204,6 @@ function Control() {
                     tiposDispositivo={tiposDispositivo}
                     tiposDato={tiposDato}
                     reglasIniciales={reglasPorActuador[actuador.id] || []}
-                    tareaDuplicada={tareaDuplicada}
                     isAuthenticated={isAuthenticated}
                     onSaved={cargar}
                   />
