@@ -4,9 +4,22 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Table from "react-bootstrap/Table";
 
-import { API_URL } from "../../utils/api";
+import { API_URL, fetchJson } from "../../utils/api";
 
 import { CiExport } from "react-icons/ci";
+
+const comparadorEspanol = new Intl.Collator("es", { sensitivity: "base", numeric: true });
+
+function ordenarPorNombre(elementos, campo) {
+  return [...elementos].sort((a, b) => comparadorEspanol.compare(a[campo] || "", b[campo] || ""));
+}
+
+function fechaHoraParaApi(valor, esFechaFinal = false) {
+  if (!valor) return "";
+  const fecha = new Date(valor);
+  if (esFechaFinal) fecha.setSeconds(59, 999);
+  return fecha.toISOString();
+}
 
 function Datos() {
   const [lecturas, setLecturas] = useState([]);
@@ -14,27 +27,52 @@ function Datos() {
   const [tiposDato, setTiposDato] = useState([]);
   const [zonas, setZonas] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [exportando, setExportando] = useState(false);
+  const [error, setError] = useState(null);
   const [pagina, setPagina] = useState(1);
+  const [filasPorPagina, setFilasPorPagina] = useState(10);
   const [totalPaginas, setTotalPaginas] = useState(1);
+  const [totalRegistros, setTotalRegistros] = useState(0);
 
   const [filtroDispositivo, setFiltroDispositivo] = useState("");
   const [filtroTipoDato, setFiltroTipoDato] = useState("");
   const [filtroZona, setFiltroZona] = useState("");
   const [filtroFechaInicio, setFiltroFechaInicio] = useState("");
   const [filtroFechaFin, setFiltroFechaFin] = useState("");
+  const hayFiltros = Boolean(
+    filtroDispositivo ||
+      filtroTipoDato ||
+      filtroZona ||
+      filtroFechaInicio ||
+      filtroFechaFin,
+  );
 
   useEffect(() => {
-    fetch(`${API_URL}/api/dispositivos`)
-      .then((res) => res.json())
-      .then((datos) => setDispositivos(datos));
+    const controller = new AbortController();
 
-    fetch(`${API_URL}/api/catalogos/tipos-dato`)
-      .then((res) => res.json())
-      .then((datos) => setTiposDato(datos));
+    Promise.all([
+      fetchJson(`${API_URL}/api/dispositivos`, {
+        signal: controller.signal,
+      }),
+      fetchJson(`${API_URL}/api/catalogos/tipos-dato`, {
+        signal: controller.signal,
+      }),
+      fetchJson(`${API_URL}/api/catalogos/zonas`, {
+        signal: controller.signal,
+      }),
+    ])
+      .then(([datosDispositivos, datosTipos, datosZonas]) => {
+        setDispositivos(datosDispositivos);
+        setTiposDato(datosTipos);
+        setZonas(datosZonas);
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") {
+          setError("No fue posible cargar los filtros");
+        }
+      });
 
-    fetch(`${API_URL}/api/catalogos/zonas`)
-      .then((res) => res.json())
-      .then((datos) => setZonas(datos));
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -49,28 +87,41 @@ function Datos() {
 
   useEffect(() => {
     setCargando(true);
+    setError(null);
+    const controller = new AbortController();
 
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       const params = new URLSearchParams();
       if (filtroDispositivo) params.append("dispositivo_id", filtroDispositivo);
       if (filtroTipoDato) params.append("tipo_dato_id", filtroTipoDato);
       if (filtroZona) params.append("zona_id", filtroZona);
-      if (filtroFechaInicio) params.append("fecha_inicio", filtroFechaInicio);
-      if (filtroFechaFin) params.append("fecha_fin", filtroFechaFin);
+      if (filtroFechaInicio) params.append("fecha_inicio", fechaHoraParaApi(filtroFechaInicio));
+      if (filtroFechaFin) params.append("fecha_fin", fechaHoraParaApi(filtroFechaFin, true));
       params.append("page", pagina);
-      params.append("limit", 13);
+      params.append("limit", filasPorPagina);
 
-      fetch(`${API_URL}/api/lecturas?${params.toString()}`)
-        .then((res) => res.json())
-        .then((datos) => {
-          setLecturas(datos.datos);
-          setTotalPaginas(datos.total_paginas);
-          setCargando(false);
-        })
-        .catch(() => setCargando(false));
+      try {
+        const datos = await fetchJson(
+          `${API_URL}/api/lecturas?${params.toString()}`,
+          { signal: controller.signal },
+        );
+        setLecturas(datos.datos);
+        setTotalPaginas(datos.total_paginas);
+        setTotalRegistros(Number(datos.total) || 0);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          setLecturas([]);
+          setError(err.message || "No fue posible cargar las lecturas");
+        }
+      } finally {
+        if (!controller.signal.aborted) setCargando(false);
+      }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [
     filtroDispositivo,
     filtroTipoDato,
@@ -78,6 +129,7 @@ function Datos() {
     filtroFechaInicio,
     filtroFechaFin,
     pagina,
+    filasPorPagina,
   ]);
 
   function reiniciarFiltros() {
@@ -89,43 +141,62 @@ function Datos() {
   }
 
   function generarBotonesPagina() {
-    const botones = [];
-    const rango = 1; // cuántas páginas mostrar a cada lado de la actual
-
-    for (let i = 1; i <= totalPaginas; i++) {
-      // Muestra siempre: primera, última, y las cercanas a la página actual
-      if (
-        i === 1 ||
-        i === totalPaginas ||
-        (i >= pagina - rango && i <= pagina + rango)
-      ) {
-        botones.push(i);
-      }
+    const paginas = new Set([1, totalPaginas]);
+    for (
+      let numero = Math.max(1, pagina - 1);
+      numero <= Math.min(totalPaginas, pagina + 1);
+      numero += 1
+    ) {
+      paginas.add(numero);
     }
 
-    return [...new Set(botones)];
+    const ordenadas = [...paginas].sort((a, b) => a - b);
+    return ordenadas.reduce((resultado, numero, indice) => {
+      if (indice > 0 && numero - ordenadas[indice - 1] > 1) {
+        resultado.push("...");
+      }
+      resultado.push(numero);
+      return resultado;
+    }, []);
   }
 
-  async function handleExportar() {
+  function obtenerParametrosExportacion() {
     const params = new URLSearchParams();
     if (filtroDispositivo) params.append("dispositivo_id", filtroDispositivo);
     if (filtroTipoDato) params.append("tipo_dato_id", filtroTipoDato);
     if (filtroZona) params.append("zona_id", filtroZona);
-    if (filtroFechaInicio) params.append("fecha_inicio", filtroFechaInicio);
-    if (filtroFechaFin) params.append("fecha_fin", filtroFechaFin);
+    if (filtroFechaInicio) params.append("fecha_inicio", fechaHoraParaApi(filtroFechaInicio));
+    if (filtroFechaFin) params.append("fecha_fin", fechaHoraParaApi(filtroFechaFin, true));
+    return params;
+  }
 
-    const res = await fetch(
-      `${API_URL}/api/lecturas/exportar?${params.toString()}`,
-    );
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
+  async function handleExportar() {
+    const params = obtenerParametrosExportacion();
+    setExportando(true);
+    setError(null);
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "lecturas.csv";
-    a.click();
+    try {
+      const res = await fetch(
+        `${API_URL}/api/lecturas/exportar?${params.toString()}`,
+      );
 
-    URL.revokeObjectURL(url);
+      if (!res.ok) {
+        const datos = await res.json().catch(() => null);
+        throw new Error(datos?.error || "No fue posible exportar las lecturas");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "lecturas.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setExportando(false);
+    }
   }
 
   return (
@@ -134,15 +205,20 @@ function Datos() {
         <Container className="data-section data-page-section">
           <Row>
             <Col>
-              <h1>Historial de datos</h1>
-              <p>
-                En esta sección se muestran las lecturas registradas por los
-                dispositivos del invernadero.
+                <h1>Historial de lecturas</h1>
+                <p>
+                En esta sección se muestran las mediciones registradas por los
+                nodos registrados en el sitio.
               </p>
             </Col>
             <Col className="text-end align-content-center">
-              <button className="add-button" onClick={handleExportar}>
-                <CiExport /> Exportar
+              <button
+                className="add-button datos-export-button"
+                onClick={handleExportar}
+                disabled={exportando}
+                title="Descargue las lecturas con los filtros seleccionados"
+              >
+                <CiExport /> {exportando ? "Exportando…" : "Exportar CSV"}
               </button>
             </Col>
           </Row>
@@ -151,18 +227,20 @@ function Datos() {
         <Container className="filter-section data-page-section card-component">
           <div className="filter-section-title">
             <h2>Filtros de búsqueda</h2>
-            <button onClick={reiniciarFiltros}>Eliminar filtros</button>
+            {hayFiltros && (
+              <button className="filter-reset-button" onClick={reiniciarFiltros}>Limpiar filtros</button>
+            )}
           </div>
-          <Row>
+          <Row className="filter-fields-row">
             <Col className="filter">
-              <label htmlFor="dispositivo">Dispositivo</label>
+              <label htmlFor="dispositivo">Nodo</label>
               <select
                 id="dispositivo"
                 onChange={(e) => setFiltroDispositivo(e.target.value)}
                 value={filtroDispositivo}
               >
-                <option value="">Todos los dispositivos</option>
-                {dispositivos.map((d) => (
+                <option value="">Todos los nodos</option>
+                {ordenarPorNombre(dispositivos, "nombre").map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.nombre}
                   </option>
@@ -177,7 +255,7 @@ function Datos() {
                 value={filtroTipoDato}
               >
                 <option value="">Todos los tipos</option>
-                {tiposDato.map((t) => (
+                {ordenarPorNombre(tiposDato, "nombre").map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.nombre}
                   </option>
@@ -192,7 +270,7 @@ function Datos() {
                 value={filtroZona}
               >
                 <option value="">Todas las zonas</option>
-                {zonas.map((t) => (
+                {ordenarPorNombre(zonas, "zona").map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.zona}
                   </option>
@@ -200,21 +278,25 @@ function Datos() {
               </select>
             </Col>
             <Col className="filter">
-              <label htmlFor="fecha_inicio">Fecha inicial</label>
+              <label htmlFor="fecha_inicio">Fecha y hora inicial</label>
               <input
-                type="date"
+                type="datetime-local"
+                step="60"
                 id="fecha_inicio"
                 onChange={(e) => setFiltroFechaInicio(e.target.value)}
                 value={filtroFechaInicio}
+                max={filtroFechaFin || undefined}
               />
             </Col>
             <Col className="filter">
-              <label htmlFor="fecha_fin">Fecha final</label>
+              <label htmlFor="fecha_fin">Fecha y hora final</label>
               <input
-                type="date"
+                type="datetime-local"
+                step="60"
                 id="fecha_fin"
                 onChange={(e) => setFiltroFechaFin(e.target.value)}
                 value={filtroFechaFin}
+                min={filtroFechaInicio || undefined}
               />
             </Col>
           </Row>
@@ -223,14 +305,35 @@ function Datos() {
         {/* TABLA*/}
         <Container className="all-section data-page-section card-component">
           <div className="lecturas-title">
-            <h2>Lecturas registradas</h2>
+            <div className="lecturas-title-copy">
+              <h2>Lecturas registradas</h2>
+              <span className="records-total">
+                {totalRegistros.toLocaleString("es-MX")} registros encontrados
+              </span>
+            </div>
+            <label className="page-size-control">
+              <span>Mostrar</span>
+              <select
+                aria-label="Cantidad de lecturas por página"
+                value={filasPorPagina}
+                onChange={(event) => {
+                  setFilasPorPagina(Number(event.target.value));
+                  setPagina(1);
+                }}
+              >
+                {[10, 25, 50, 100].map((cantidad) => (
+                  <option key={cantidad} value={cantidad}>{cantidad}</option>
+                ))}
+              </select>
+              <span>por página</span>
+            </label>
           </div>
 
           <div className="table-section">
             <Table>
               <thead className="table-head">
                 <tr>
-                  <th>Dispositivo</th>
+                  <th>Nodo</th>
                   <th className="d-none d-md-table-cell">Tipo de dato</th>
                   <th>Valor</th>
                   <th>Zona</th>
@@ -240,13 +343,19 @@ function Datos() {
               <tbody className="table-body">
                 {cargando ? (
                   <tr>
-                    <td colSpan={4} className="text-center">
+                    <td colSpan={5} className="text-center">
                       Cargando...
+                    </td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan={5} className="text-center text-danger">
+                      {error}
                     </td>
                   </tr>
                 ) : lecturas.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center">
+                    <td colSpan={5} className="text-center">
                       No hay lecturas
                     </td>
                   </tr>
@@ -276,9 +385,11 @@ function Datos() {
           </div>
 
           {totalPaginas > 1 && (
-            <div className="pagination-section">
+            <div className="pagination-footer">
+              <div className="pagination-section" aria-label="Paginación de lecturas">
               <button
                 className="pagination-btn"
+                aria-label="Página anterior"
                 onClick={() => setPagina((p) => p - 1)}
                 disabled={pagina === 1}
               >
@@ -287,17 +398,13 @@ function Datos() {
 
               {generarBotonesPagina().map((btn, i) =>
                 btn === "..." ? (
-                  <span
-                    key={`ellipsis-${i}`}
-                    className="pagination-btn"
-                    style={{ cursor: "default" }}
-                  >
-                    ...
-                  </span>
+                  <span key={`ellipsis-${i}`} className="pagination-ellipsis" aria-hidden="true">…</span>
                 ) : (
                   <button
                     key={btn}
                     className={`pagination-btn ${pagina === btn ? "activo" : ""}`}
+                    aria-label={`Página ${btn}`}
+                    aria-current={pagina === btn ? "page" : undefined}
                     onClick={() => setPagina(btn)}
                   >
                     {btn}
@@ -307,11 +414,13 @@ function Datos() {
 
               <button
                 className="pagination-btn"
+                aria-label="Página siguiente"
                 onClick={() => setPagina((p) => p + 1)}
                 disabled={pagina === totalPaginas}
               >
                 →
               </button>
+              </div>
             </div>
           )}
         </Container>

@@ -2,22 +2,28 @@ import { useState, useEffect } from "react";
 import Modal from "react-bootstrap/Modal";
 
 import { fetchAuth } from "../../utils/fetchAuth";
-import { API_URL } from "../../utils/api";
+import { API_URL, fetchJson } from "../../utils/api";
 
 function TiposForm({ show, onHide, onGuardado, componente }) {
   const esEdicion = !!componente;
   const [nombre, setNombre] = useState("");
-  const [descripcion, setDescripcion] = useState("");
-  const [imagen, setImagen] = useState(null);
+  const [categoria, setCategoria] = useState("SENSOR");
+  const [tiposDato, setTiposDato] = useState([]);
+  const [tiposDatoSeleccionados, setTiposDatoSeleccionados] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!show) return;
 
+    fetchJson(`${API_URL}/api/catalogos/tipos-dato`)
+      .then(setTiposDato)
+      .catch((fetchError) => setError(fetchError.message || "No fue posible cargar los tipos de dato"));
+
     if (componente) {
       setNombre(componente.nombre || "");
-      setDescripcion(componente.descripcion || "");
+      setCategoria(componente.categoria || "SENSOR");
+      setTiposDatoSeleccionados((componente.tipo_dato_ids || []).map(Number));
     } else {
       limpiarForm();
     }
@@ -28,28 +34,16 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
       setError("El nombre es obligatorio");
       return;
     }
+    if (categoria === "SENSOR" && tiposDatoSeleccionados.length === 0) {
+      setError("Seleccione al menos un tipo de dato para este sensor");
+      return;
+    }
 
     setGuardando(true);
     setError(null);
 
     try {
-      let image_path = componente?.image_path ?? null; // mantiene la imagen actual por default
-      if (imagen) {
-        const formData = new FormData();
-        formData.append("imagen", imagen);
-        const resImg = await fetchAuth(`${API_URL}/api/uploads/dispositivos`, {
-          method: "POST",
-          body: formData,
-        });
-        console.log("Status upload:", resImg.status);
-        const datosImg = await resImg.json();
-        console.log("Respuesta upload:", datosImg);
-        image_path = datosImg.image_path;
-      }
-
-      console.log("image_path a enviar:", image_path);
-      const body = { nombre, descripcion, image_path };
-      if (imagen) body.image_path = image_path;
+      const body = { nombre, categoria, tipo_dato_ids: categoria === "SENSOR" ? tiposDatoSeleccionados : [] };
 
       const res = await fetchAuth(
         esEdicion
@@ -62,10 +56,8 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
         },
       );
 
-      console.log("Status guardar:", res.status);
       if (!res.ok) {
         const datos = await res.json();
-        console.log("Error del backend:", datos);
         setError(datos.error);
         return;
       }
@@ -74,8 +66,7 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
       onGuardado(esEdicion ? componente.id : null);
       onHide();
     } catch (error) {
-      console.error("Error completo:", error);
-      setError("Error al guardar el tipo de dispositivo");
+      setError(error.message || "Error al guardar el tipo de dispositivo");
     } finally {
       setGuardando(false);
     }
@@ -83,8 +74,8 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
 
   function limpiarForm() {
     setNombre("");
-    setDescripcion("");
-    setImagen(null);
+    setCategoria("SENSOR");
+    setTiposDatoSeleccionados([]);
   }
 
   return (
@@ -100,7 +91,50 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
         {error && <div className="alert alert-danger">{error}</div>}
 
         <div className="form-group mb-3">
-          <label className="form-label fw-bold">Nombre de tipo*</label>
+          <label className="form-label fw-bold">Categoría *</label>
+          <select
+            className="form-select"
+            value={categoria}
+            onChange={(e) => {
+              setCategoria(e.target.value);
+              if (e.target.value !== "SENSOR") setTiposDatoSeleccionados([]);
+            }}
+          >
+            <option value="NODO">Nodo de comunicación</option>
+            <option value="SENSOR">Sensor</option>
+            <option value="ACTUADOR">Actuador</option>
+          </select>
+          <small className="text-muted">
+            Los sensores pueden generar uno o varios tipos de dato.
+          </small>
+        </div>
+
+        {categoria === "SENSOR" && (
+          <fieldset className="form-group mb-3 tipo-dato-selector">
+            <legend className="form-label fw-bold">Datos que genera *</legend>
+            <p className="tipo-dato-selector-hint">Seleccione las variables que mide este tipo de sensor.</p>
+            <div className="tipo-dato-options">
+            {tiposDato.length ? tiposDato.map((tipoDato) => (
+              <label className="tipo-dato-option" key={tipoDato.id}>
+                <input
+                  type="checkbox"
+                  checked={tiposDatoSeleccionados.includes(Number(tipoDato.id))}
+                  onChange={(event) => setTiposDatoSeleccionados((actuales) => event.target.checked
+                    ? [...new Set([...actuales, Number(tipoDato.id)])]
+                    : actuales.filter((id) => id !== Number(tipoDato.id)))}
+                />
+                <span className="tipo-dato-option-copy">
+                  <strong>{tipoDato.nombre}</strong>
+                  <small>{tipoDato.unidad || "Sin unidad"}</small>
+                </span>
+              </label>
+            )) : <small className="text-muted">No hay tipos de dato configurados.</small>}
+            </div>
+          </fieldset>
+        )}
+
+        <div className="form-group mb-3">
+          <label className="form-label fw-bold">Nombre del tipo *</label>
           <input
             type="text"
             className="form-control"
@@ -109,36 +143,6 @@ function TiposForm({ show, onHide, onGuardado, componente }) {
             placeholder="Ej: DHT22-01"
           />
         </div>
-        <div className="form-group mb-3">
-          <label className="form-label fw-bold">Descripcion </label>
-          <input
-            type="text"
-            className="form-control"
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Ej: Sensor de temperatura..."
-          />
-        </div>
-        {esEdicion && componente?.image_path && (
-          <div className="mb-2">
-            <p className="text-muted mb-1">Imagen actual:</p>
-            <img
-              src={componente.image_path}
-              alt="imagen actual"
-              style={{
-                height: "80px",
-                borderRadius: "0.5rem",
-                objectFit: "cover",
-              }}
-            />
-          </div>
-        )}
-        <input
-          type="file"
-          className="form-control"
-          accept="image/*"
-          onChange={(e) => setImagen(e.target.files[0])}
-        />
       </Modal.Body>
 
       <Modal.Footer>

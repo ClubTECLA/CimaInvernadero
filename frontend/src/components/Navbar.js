@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Navbar from "react-bootstrap/Navbar";
 import Nav from "react-bootstrap/Nav";
 import Container from "react-bootstrap/Container";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -11,9 +11,8 @@ import logo from "../Assets/logo_uabc.png";
 import {
   WiLightning,
   WiThermometerExterior,
-  WiSnowflakeCold,
-  WiSmallCraftAdvisory,
 } from "react-icons/wi";
+import { FiHome, FiSettings, FiSliders, FiSun, FiMoon } from "react-icons/fi";
 
 function NavBar() {
   const { isAuthenticated, logout } = useAuth();
@@ -21,6 +20,29 @@ function NavBar() {
 
   const [expand, updateExpander] = useState(false);
   const [navColour, updateNavbar] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    const temaGuardado = localStorage.getItem("invernadero-theme") || "light";
+    document.documentElement.dataset.theme = temaGuardado;
+    return temaGuardado;
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("invernadero-theme", theme);
+  }, [theme]);
+
+  const navLink = (to, label, icon, end = false) => (
+    <Nav.Link
+      as={NavLink}
+      to={to}
+      end={end}
+      onClick={() => updateExpander(false)}
+      aria-label={label}
+    >
+      {icon}
+      {label}
+    </Nav.Link>
+  );
 
   useEffect(() => {
     function scrollHandler() {
@@ -41,7 +63,7 @@ function NavBar() {
       <Container>
         <Navbar.Brand href="/" className="d-flex">
           <img src={logo} className="img-fluid logo" alt="brand" />
-          <p className="d-none d-md-inline">Monitoreo de invernadero</p>
+          <p className="d-none d-md-inline">Monitoreo del sitio</p>
         </Navbar.Brand>
         <Navbar.Toggle
           aria-controls="responsive-navbar-nav"
@@ -56,48 +78,33 @@ function NavBar() {
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="ms-auto">
             <Nav.Item>
-              <Nav.Link as={Link} to="/" onClick={() => updateExpander(false)}>
-                <WiSmallCraftAdvisory
-                  style={{ marginBottom: "2px", fontSize: "1.5em" }}
-                />
-                Inicio
-              </Nav.Link>
+              {navLink("/", "Inicio", <FiHome className="nav-icon" />, true)}
             </Nav.Item>
             <Nav.Item>
-              <Nav.Link
-                as={Link}
-                to="/datos"
-                onClick={() => updateExpander(false)}
-              >
-                <WiThermometerExterior
-                  style={{ marginBottom: "2px", fontSize: "1.5em" }}
-                />
-                Datos
-              </Nav.Link>
+              {navLink("/datos", "Datos", <WiThermometerExterior className="nav-icon" />)}
             </Nav.Item>
             <Nav.Item>
-              <Nav.Link
-                as={Link}
-                to="/dispositivos"
-                onClick={() => updateExpander(false)}
-              >
-                <WiLightning
-                  style={{ marginBottom: "2px", fontSize: "1.5em" }}
-                />
-                Dispositivos
-              </Nav.Link>
+              {navLink("/dispositivos", "Nodos", <WiLightning className="nav-icon" />)}
             </Nav.Item>
             <Nav.Item>
-              <Nav.Link
-                as={Link}
-                to="/configuracion"
-                onClick={() => updateExpander(false)}
+              {navLink("/configuracion", "Configuración", <FiSettings className="nav-icon" />)}
+            </Nav.Item>
+            <Nav.Item>
+              {navLink("/control", "Actuadores", <FiSliders className="nav-icon nav-icon-small" />)}
+            </Nav.Item>
+
+            <Nav.Item className="theme-nav-item">
+              <button
+                type="button"
+                className="theme-toggle"
+                onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                aria-label={"Cambiar a modo " + (theme === "light" ? "oscuro" : "claro")}
+                title={`Cambiar a modo ${theme === "light" ? "oscuro" : "claro"}`}
               >
-                <WiSnowflakeCold
-                  style={{ marginBottom: "2px", fontSize: "1.5em" }}
-                />
-                Configuracion
-              </Nav.Link>
+                {theme === "light"
+                  ? <FiSun aria-hidden="true" />
+                  : <FiMoon aria-hidden="true" />}
+              </button>
             </Nav.Item>
 
             <Nav.Item>

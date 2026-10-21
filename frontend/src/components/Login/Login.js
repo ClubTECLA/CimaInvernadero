@@ -50,7 +50,7 @@ function Login() {
     <Container className="login-section">
       <div className="login-card card-component">
         <h2>Iniciar sesión</h2>
-        <p>Accede para gestionar el invernadero</p>
+        <p>Inicie sesión para administrar este sitio</p>
 
         {error && <div className="alert alert-danger">{error}</div>}
 

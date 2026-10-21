@@ -1,0 +1,205 @@
+/* SECCIÓN: BARRA DE NAVEGACIÓN */
+.navbar.sticky {
+  background-color: var(--verde-principal-alfa) !important;
+  position: fixed;
+  transition: all 0.3s ease-out 0s;
+}
+
+.navbar {
+  background-color: var(--verde-principal);
+  position: fixed;
+  transition: all 0.3s ease-out 0s;
+  padding: 0.3rem 2rem !important;
+  font-size: 1.2rem;
+  color: white;
+  align-items: center;
+  left: 0 !important;
+  width: 100vw !important;
+}
+
+.navbar-toggler {
+  position: relative;
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.navbar-toggler span {
+  display: block;
+  background-color: var(--verde-secundario);
+  height: 4px;
+  width: 27px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+  transform: rotate(0deg);
+  left: 0;
+  opacity: 1;
+}
+
+.navbar-toggler:focus,
+.navbar-toggler:active {
+  outline: 0;
+  box-shadow: none;
+}
+
+.navbar-toggler span:nth-child(1),
+.navbar-toggler span:nth-child(3) {
+  transition: transform 0.35s ease-in-out;
+  transition: transform 0.35s ease-in-out;
+}
+
+.navbar-toggler:not(.collapsed) span:nth-child(1) {
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  transform: rotate(135deg);
+  opacity: 0.9;
+}
+
+.navbar-toggler:not(.collapsed) span:nth-child(2) {
+  height: 12px;
+  visibility: hidden;
+  background-color: transparent;
+}
+
+.navbar-toggler:not(.collapsed) span:nth-child(3) {
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  transform: rotate(-135deg);
+  opacity: 0.9;
+}
+
+@media (max-width: 767px) {
+  .navbar {
+    padding: 1rem 2rem;
+    font-size: 1.4rem;
+    background-color: var(--verde-principal);
+  }
+
+  .navbar-nav .nav-item a::after {
+    display: none;
+  }
+
+  .navbar-nav {
+    margin-left: 0 !important;
+    align-items: flex-start;
+  }
+}
+
+.navbar-brand p {
+  color: white;
+  margin-bottom: 0;
+  margin-left: 1em;
+}
+
+.logo {
+  height: 2rem;
+  width: 1.5rem;
+}
+
+.navbar-nav .nav-link {
+  color: white;
+  padding-right: 1rem;
+  padding-left: 1rem;
+}
+
+.nav-link {
+  padding: 0.7rem 1rem;
+}
+
+@media (max-width: 767px) {
+  .nav-link {
+    padding: 0.7rem 1rem;
+  }
+}
+
+.navbar-nav .nav-item {
+  position: relative;
+  margin-left: 20px;
+}
+
+.navbar-nav .nav-item a {
+  font-weight: 400;
+  transition: all 0.3s ease-out 0s;
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.navbar-nav .nav-item a::after,
+.navbar-nav .nav-item a::before {
+  content: "";
+  position: absolute;
+  height: 3px;
+  width: 100%;
+  border-radius: 16px;
+  background-color: var(--verde-secundario);
+  bottom: 8px;
+  left: 0;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.4s ease-out;
+}
+
+.navbar-nav .nav-item a::before {
+  top: 8px;
+  transform-origin: left;
+}
+
+.navbar-nav .nav-item a:hover::after,
+.navbar-nav .nav-item a:hover::before {
+  transform: scaleX(1);
+}
+
+/* La ruta actual permanece resaltada; las líneas quedan como efecto hover. */
+.navbar-nav .nav-link.active {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 0.7rem;
+  font-weight: 700;
+}
+
+.navbar-nav .nav-link.active::after {
+  transform: scaleX(0.58);
+  transform-origin: center;
+  background-color: #c8f7a5;
+}
+
+.navbar-nav .nav-link.active::before { display: none; }
+.nav-icon { margin: 0 0.3rem 0 0; font-size: 1.5em; }
+.nav-icon-small { font-size: 1.35em; }
+
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2.55rem;
+  height: 2.55rem;
+  margin: 0.35rem 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  outline: 2px solid #c8f7a5;
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .navbar-nav .nav-link.active {
+    border-left: 4px solid #c8f7a5;
+    border-radius: 0.35rem;
+  }
+
+  .navbar-nav .nav-link.active::after { display: none; }
+  .theme-toggle { margin-left: 0.5rem; }
+}
+
+/* SECCIÓN: INICIO - HOME*/

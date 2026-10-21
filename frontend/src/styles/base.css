@@ -1,0 +1,61 @@
+:root {
+  --verde-principal: #007200;
+  --verde-principal-alfa: #00720082;
+  --verde-secundario: #004b23;
+  --verde-claro: #4caf50;
+  --blanco: white;
+  --fondo: #dad7cd;
+  --gris-fondo: #d9d9d9;
+  --blanco-fondo: #f4f4f4;
+  --negro: #000000;
+  --editar: #ffc477;
+  --eliminar: #fe1a00;
+}
+
+body {
+  background-color: var(--fondo);
+  padding-top: 70px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 767px) {
+  body {
+    padding-top: 50px;
+  }
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-content {
+  flex: 1;
+}
+
+.card-component {
+  background-color: var(--blanco);
+  border-radius: 1rem;
+}
+
+h1,
+h2 {
+  color: var(--verde-secundario);
+}
+
+.estado-operativo,
+.home-node-marker.estado-operativo,
+.home-status-legend__swatch.estado-operativo { background-color: #198754; color: #fff; }
+.estado-inactivo,
+.home-node-marker.estado-inactivo,
+.home-status-legend__swatch.estado-inactivo { background-color: #6c757d; color: #fff; }
+.estado-mantenimiento,
+.home-node-marker.estado-mantenimiento,
+.home-status-legend__swatch.estado-mantenimiento { background-color: #ffc107; color: #212529; }
+.estado-fallando,
+.home-node-marker.estado-fallando,
+.home-status-legend__swatch.estado-fallando { background-color: #dc3545; color: #fff; }
+

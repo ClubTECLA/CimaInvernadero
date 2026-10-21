@@ -2,8 +2,56 @@ import { Router } from "express";
 import { pool } from "../../db.js";
 
 import { verificarToken } from "../../middleware/auth.js";
+import { zonasSeTraslapan } from "../../utils/zonas.js";
+import { DIMENSIONES_SITIO } from "../../config/sitio.js";
 
 const router = Router();
+const camposLimite = [
+  "largo_inicio",
+  "largo_fin",
+  "ancho_inicio",
+  "ancho_fin",
+];
+
+function normalizarLimites(body) {
+  const valores = camposLimite.map((campo) => {
+    const valor = body[campo];
+    if (valor === "" || valor === null || valor === undefined) return null;
+    const numero = Number(valor);
+    const centesimas = Math.round(numero * 100);
+    const precisionValida = Number.isFinite(numero) && Math.abs(numero * 100 - centesimas) < 1e-7;
+    return precisionValida && numero >= 0 ? centesimas / 100 : NaN;
+  });
+
+  if (valores.some(Number.isNaN)) {
+    return { error: "Los límites deben ser números con hasta dos decimales, iguales o mayores que cero" };
+  }
+
+  if (valores.some((valor) => valor === null)) {
+    return { error: "Para registrar una zona, indique los cuatro límites de largo y ancho" };
+  }
+  const maximos = [DIMENSIONES_SITIO.largo, DIMENSIONES_SITIO.largo, DIMENSIONES_SITIO.ancho, DIMENSIONES_SITIO.ancho];
+  if (valores.some((valor, indice) => valor > maximos[indice])) {
+    return { error: `Los límites no pueden exceder ${DIMENSIONES_SITIO.largo.toFixed(2)} m de largo ni ${DIMENSIONES_SITIO.ancho.toFixed(2)} m de ancho` };
+  }
+  for (let eje = 0; eje < camposLimite.length; eje += 2) {
+    if (valores[eje] >= valores[eje + 1]) {
+      return { error: "Cada límite inicial debe ser menor que su límite final" };
+    }
+  }
+
+  return { valores };
+}
+
+async function buscarTraslape(connection, valores, idIgnorado = null) {
+  const sql = "SELECT id, zona, largo_inicio, largo_fin, ancho_inicio, ancho_fin, altura_inicio, altura_fin " +
+    "FROM zona WHERE largo_inicio IS NOT NULL AND largo_fin IS NOT NULL " +
+    "AND ancho_inicio IS NOT NULL AND ancho_fin IS NOT NULL " +
+    (idIgnorado === null ? "" : "AND id <> ?");
+  const [zonas] = await connection.query(sql, idIgnorado === null ? [] : [idIgnorado]);
+  const nuevaZona = Object.fromEntries(camposLimite.map((campo, indice) => [campo, valores[indice]]));
+  return zonas.find((zona) => zonasSeTraslapan(nuevaZona, zona)) || null;
+}
 
 // GET /api/zona -> todas las zonas
 router.get("/", async (req, res) => {
@@ -38,11 +86,26 @@ router.post("/", verificarToken, async (req, res) => {
   if (!zona) {
     return res.status(400).json({ error: "La zona es requeridos" });
   }
+  if (String(zona).trim().toLowerCase() === "sin zona") {
+    return res.status(409).json({ error: "'Sin zona' está reservada como opción predeterminada" });
+  }
+  const { valores: limites, error } = normalizarLimites(req.body);
+  if (error) return res.status(400).json({ error });
 
   try {
-    const [result] = await pool.query("INSERT INTO zona (zona) VALUES (?)", [
-      zona,
-    ]);
+    const traslapada = await buscarTraslape(pool, limites);
+    if (traslapada) {
+      return res.status(409).json({
+        error: "Los límites se traslapan con \"" + traslapada.zona + "\". Ajuste los rangos para que las zonas no ocupen el mismo espacio.",
+      });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO zona
+       (zona, largo_inicio, largo_fin, ancho_inicio, ancho_fin, altura_inicio, altura_fin)
+       VALUES (?, ?, ?, ?, ?, 0, ?)`,
+      [zona, ...limites, DIMENSIONES_SITIO.altura],
+    );
     res.status(201).json({ id: result.insertId, zona });
   } catch (error) {
     console.error("Error al crear zona:", error.message);
@@ -58,12 +121,31 @@ router.patch("/:id", verificarToken, async (req, res) => {
   if (!zona) {
     return res.status(400).json({ error: "La zona es requerida" });
   }
+  if (String(zona).trim().toLowerCase() === "sin zona") {
+    return res.status(409).json({ error: "'Sin zona' está reservada como opción predeterminada" });
+  }
+  const [[zonaActual]] = await pool.query("SELECT zona FROM zona WHERE id = ?", [id]);
+  if (zonaActual && String(zonaActual.zona).trim().toLowerCase() === "sin zona") {
+    return res.status(409).json({ error: "La opción predeterminada 'Sin zona' no se puede editar" });
+  }
+  const { valores: limites, error } = normalizarLimites(req.body);
+  if (error) return res.status(400).json({ error });
 
   try {
-    const [result] = await pool.query("UPDATE zona SET zona = ? WHERE id = ?", [
-      zona,
-      id,
-    ]);
+    const traslapada = await buscarTraslape(pool, limites, id);
+    if (traslapada) {
+      return res.status(409).json({
+        error: "Los límites se traslapan con \"" + traslapada.zona + "\". Ajuste los rangos para que las zonas no ocupen el mismo espacio.",
+      });
+    }
+
+    const [result] = await pool.query(
+      `UPDATE zona
+       SET zona = ?, largo_inicio = ?, largo_fin = ?, ancho_inicio = ?,
+           ancho_fin = ?, altura_inicio = 0, altura_fin = ?
+       WHERE id = ?`,
+      [zona, ...limites, DIMENSIONES_SITIO.altura, id],
+    );
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: `Zona ${id} no encontrada` });
     }
@@ -77,27 +159,35 @@ router.patch("/:id", verificarToken, async (req, res) => {
 // DELETE /api/zona/:id -> eliminar una zona
 router.delete("/:id", verificarToken, async (req, res) => {
   const { id } = req.params;
-
+  const connection = await pool.getConnection();
   try {
-    // Verifica si algún dispositivo usa esta zona antes de borrar
-    const [dispositivos] = await pool.query(
-      "SELECT id FROM dispositivo WHERE zona_id = ?",
-      [id],
-    );
-    if (dispositivos.length > 0) {
-      return res.status(409).json({
-        error: `No se puede eliminar, ${dispositivos.length} dispositivo(s) usan esta zona`,
-      });
-    }
-
-    const [result] = await pool.query("DELETE FROM zona WHERE id = ?", [id]);
-    if (result.affectedRows === 0) {
+    await connection.beginTransaction();
+    const [existente] = await connection.query("SELECT id, zona FROM zona WHERE id = ? FOR UPDATE", [id]);
+    if (existente.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: `Zona ${id} no encontrada` });
     }
-    res.json({ message: `Zona ${id} eliminada correctamente` });
+    if (String(existente[0].zona).trim().toLowerCase() === "sin zona") {
+      await connection.rollback();
+      return res.status(409).json({ error: "'Sin zona' no se administra como una zona del catálogo" });
+    }
+
+    const [reasignados] = await connection.query(
+      "UPDATE dispositivo SET zona_id = NULL WHERE zona_id = ?",
+      [id],
+    );
+    await connection.query("DELETE FROM zona WHERE id = ?", [id]);
+    await connection.commit();
+    res.json({
+      message: "Zona eliminada correctamente",
+      nodos_reasignados: reasignados.affectedRows,
+    });
   } catch (error) {
+    await connection.rollback();
     console.error("Error al eliminar zona:", error.message);
     res.status(500).json({ error: "Error al eliminar la zona" });
+  } finally {
+    connection.release();
   }
 });
 

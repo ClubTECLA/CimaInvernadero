@@ -46,6 +46,7 @@ services:
       ADMIN_USER: ${ADMIN_USER}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY:-}
       PORT: 4000
     depends_on:
       db:
@@ -78,7 +79,7 @@ services:
     networks:
       - invernadero_net_dev
     ports:
-      - "3000:3000"
+      - "3001:3000"
     stdin_open: true
 
 networks:

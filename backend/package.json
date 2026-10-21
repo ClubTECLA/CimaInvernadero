@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node -e \"import('./src/database/seed.js').then(m => m.seed())\""
+    "test": "node --test",
+    "seed": "node -e \"import('./src/database/seed.js').then(m => m.seed()).then(() => process.exit(0)).catch(() => process.exit(1))\""
   },
   "dependencies": {
     "cors": "^2.8.5",

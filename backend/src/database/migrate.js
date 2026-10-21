@@ -24,18 +24,47 @@ export async function migrate() {
     await connection.query(`
       CREATE TABLE IF NOT EXISTS zona (
         id   INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
-        zona VARCHAR(255)
+        zona VARCHAR(255),
+        largo_inicio DECIMAL(8,3) NULL,
+        largo_fin DECIMAL(8,3) NULL,
+        ancho_inicio DECIMAL(8,3) NULL,
+        ancho_fin DECIMAL(8,3) NULL,
+        altura_inicio DECIMAL(8,3) NULL,
+        altura_fin DECIMAL(8,3) NULL
       )
     `);
+
+    const columnasZona = [
+      ["largo_inicio", "DECIMAL(8,3) NULL"],
+      ["largo_fin", "DECIMAL(8,3) NULL"],
+      ["ancho_inicio", "DECIMAL(8,3) NULL"],
+      ["ancho_fin", "DECIMAL(8,3) NULL"],
+      ["altura_inicio", "DECIMAL(8,3) NULL"],
+      ["altura_fin", "DECIMAL(8,3) NULL"],
+    ];
+    for (const [nombre, tipo] of columnasZona) {
+      const [columnas] = await connection.query(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'zona' AND COLUMN_NAME = ?`,
+        [nombre],
+      );
+      if (columnas.length === 0) {
+        await connection.query(`ALTER TABLE zona ADD COLUMN ${nombre} ${tipo}`);
+      }
+    }
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS tipo_dispositivo (
         id          INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
         nombre      VARCHAR(255),
+        categoria   ENUM('SENSOR', 'ACTUADOR') NOT NULL DEFAULT 'SENSOR',
         descripcion VARCHAR(255),
         image_path  VARCHAR(255)
       )
     `);
+
+    const [categoriaTipo] = await connection.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tipo_dispositivo' AND COLUMN_NAME = 'categoria'`);
+    if (!categoriaTipo.length) await connection.query("ALTER TABLE tipo_dispositivo ADD COLUMN categoria ENUM('SENSOR', 'ACTUADOR') NOT NULL DEFAULT 'SENSOR' AFTER nombre");
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS tipo_dato (
@@ -57,7 +86,7 @@ export async function migrate() {
         id        INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
         specs_id  INT,
         zona_id   INT NOT NULL,
-        tipo_id   INT NOT NULL,
+        tipo_id   INT NULL,
         estado    ENUM('OPERATIVO', 'INACTIVO', 'EN MANTENIMIENTO', 'FALLANDO'),
         nombre    VARCHAR(255),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -67,6 +96,24 @@ export async function migrate() {
         CONSTRAINT fk_dispositivo_tipo  FOREIGN KEY (tipo_id)  REFERENCES tipo_dispositivo(id)
       )
     `);
+
+    await connection.query("ALTER TABLE dispositivo MODIFY COLUMN tipo_id INT NULL");
+
+    const [columnaZonaDispositivo] = await connection.query(
+      `SELECT IS_NULLABLE FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dispositivo' AND COLUMN_NAME = 'zona_id'`,
+    );
+    if (columnaZonaDispositivo[0]?.IS_NULLABLE === "NO") {
+      await connection.query("ALTER TABLE dispositivo MODIFY COLUMN zona_id INT NULL");
+    }
+
+    await connection.query(`
+      UPDATE dispositivo d
+      JOIN zona z ON z.id = d.zona_id
+      SET d.zona_id = NULL
+      WHERE LOWER(TRIM(z.zona)) = 'sin zona'
+    `);
+    await connection.query("DELETE FROM zona WHERE LOWER(TRIM(zona)) = 'sin zona'");
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS lecturas (
@@ -79,6 +126,83 @@ export async function migrate() {
         CONSTRAINT fk_lectura_tipo_dato   FOREIGN KEY (tipo_dato_id)   REFERENCES tipo_dato(id)
       )
     `);
+
+    const [bateriaLecturaExiste] = await connection.query(
+      "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='lecturas' AND COLUMN_NAME='bateria_porcentaje'",
+    );
+    if (!bateriaLecturaExiste.length) {
+      await connection.query("ALTER TABLE lecturas ADD COLUMN bateria_porcentaje DECIMAL(5,2) NULL");
+    }
+
+    await connection.query(`CREATE TABLE IF NOT EXISTS tipo_dispositivo_tipo_dato (
+      tipo_dispositivo_id INT NOT NULL, tipo_dato_id INT NOT NULL,
+      PRIMARY KEY (tipo_dispositivo_id, tipo_dato_id),
+      CONSTRAINT fk_tipo_dato_dispositivo_tipo FOREIGN KEY (tipo_dispositivo_id) REFERENCES tipo_dispositivo(id) ON DELETE CASCADE,
+      CONSTRAINT fk_tipo_dato_dispositivo_dato FOREIGN KEY (tipo_dato_id) REFERENCES tipo_dato(id) ON DELETE RESTRICT
+    )`);
+    await connection.query(`INSERT IGNORE INTO tipo_dispositivo_tipo_dato (tipo_dispositivo_id,tipo_dato_id)
+      SELECT t.id,d.id FROM tipo_dispositivo t JOIN tipo_dato d
+      WHERE t.nombre IN ('DHT11','DHT22') AND d.nombre IN ('Temperatura','Humedad')`);
+    await connection.query(`CREATE TABLE IF NOT EXISTS sensor (
+      id INT AUTO_INCREMENT PRIMARY KEY, dispositivo_id INT NOT NULL, tipo_dispositivo_id INT NOT NULL,
+      nombre VARCHAR(255) NOT NULL, estado ENUM('OPERATIVO','INACTIVO','EN MANTENIMIENTO','FALLANDO') NOT NULL DEFAULT 'OPERATIVO',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_sensor_nodo FOREIGN KEY (dispositivo_id) REFERENCES dispositivo(id) ON DELETE CASCADE,
+      CONSTRAINT fk_sensor_tipo FOREIGN KEY (tipo_dispositivo_id) REFERENCES tipo_dispositivo(id) ON DELETE RESTRICT,
+      INDEX idx_sensor_nodo (dispositivo_id)
+    )`);
+    await connection.query(`CREATE TABLE IF NOT EXISTS actuador (
+      id INT AUTO_INCREMENT PRIMARY KEY, dispositivo_id INT NOT NULL, tipo_dispositivo_id INT NOT NULL,
+      nombre VARCHAR(255) NOT NULL, estado ENUM('OPERATIVO','INACTIVO','EN MANTENIMIENTO','FALLANDO') NOT NULL DEFAULT 'OPERATIVO',
+      encendido TINYINT(1) NOT NULL DEFAULT 0, control_automatico_activo TINYINT(1) NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_actuador_nodo FOREIGN KEY (dispositivo_id) REFERENCES dispositivo(id) ON DELETE CASCADE,
+      CONSTRAINT fk_actuador_tipo FOREIGN KEY (tipo_dispositivo_id) REFERENCES tipo_dispositivo(id) ON DELETE RESTRICT,
+      INDEX idx_actuador_nodo (dispositivo_id)
+    )`);
+
+    await connection.query(`UPDATE dispositivo d
+      JOIN tipo_dispositivo t ON t.id = d.tipo_id
+      SET d.tipo_id = NULL
+      WHERE t.categoria = 'NODO'`);
+    await connection.query(`UPDATE tipo_dispositivo t SET categoria = 'SENSOR'
+      WHERE t.categoria = 'NODO' AND EXISTS (SELECT 1 FROM sensor s WHERE s.tipo_dispositivo_id = t.id)`);
+    await connection.query(`UPDATE tipo_dispositivo t SET categoria = 'ACTUADOR'
+      WHERE t.categoria = 'NODO' AND EXISTS (SELECT 1 FROM actuador a WHERE a.tipo_dispositivo_id = t.id)`);
+    await connection.query("DELETE FROM tipo_dispositivo WHERE categoria = 'NODO'");
+    await connection.query("ALTER TABLE tipo_dispositivo MODIFY COLUMN categoria ENUM('SENSOR', 'ACTUADOR') NOT NULL DEFAULT 'SENSOR'");
+
+    await connection.query(`CREATE TABLE IF NOT EXISTS actuador_regla (
+      id INT AUTO_INCREMENT PRIMARY KEY, actuador_id INT NOT NULL, sensor_id INT NOT NULL, tipo_dato_id INT NOT NULL,
+      valor_minimo DECIMAL(12,4) NOT NULL, valor_maximo DECIMAL(12,4) NOT NULL,
+      modo ENUM('ACTIVAR_DEBAJO','ACTIVAR_ENCIMA') NOT NULL DEFAULT 'ACTIVAR_DEBAJO',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_regla_actuador FOREIGN KEY (actuador_id) REFERENCES actuador(id) ON DELETE CASCADE,
+      CONSTRAINT fk_regla_sensor FOREIGN KEY (sensor_id) REFERENCES sensor(id) ON DELETE CASCADE,
+      CONSTRAINT fk_regla_dato FOREIGN KEY (tipo_dato_id) REFERENCES tipo_dato(id) ON DELETE RESTRICT,
+      UNIQUE KEY uq_regla_actuador_sensor_dato (actuador_id,sensor_id,tipo_dato_id)
+    )`);
+
+    await connection.query(`CREATE TABLE IF NOT EXISTS gateway_command (
+      id CHAR(36) PRIMARY KEY,
+      idempotency_key CHAR(36) NOT NULL UNIQUE,
+      dispositivo_id INT NOT NULL,
+      tipo VARCHAR(64) NOT NULL,
+      payload JSON NOT NULL,
+      estado ENUM('EN_COLA','ENTREGADO','CONFIRMADO','FALLIDO','VENCIDO') NOT NULL DEFAULT 'EN_COLA',
+      respuesta VARCHAR(500) NULL,
+      vence_at DATETIME NOT NULL,
+      creado_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      entregado_at DATETIME NULL,
+      respondido_at DATETIME NULL,
+      CONSTRAINT fk_gateway_command_nodo FOREIGN KEY (dispositivo_id) REFERENCES dispositivo(id) ON DELETE CASCADE,
+      INDEX idx_gateway_command_queue (estado, creado_at),
+      INDEX idx_gateway_command_node (dispositivo_id, creado_at)
+    )`);
+    await connection.query(`CREATE TABLE IF NOT EXISTS gateway_command_mutex (
+      id TINYINT PRIMARY KEY
+    )`);
+    await connection.query("INSERT IGNORE INTO gateway_command_mutex (id) VALUES (1)");
 
     const [columnas] = await connection.query(`
       SELECT COLUMN_NAME
@@ -125,6 +249,18 @@ export async function migrate() {
         ADD CONSTRAINT fk_dispositivo_proposito
         FOREIGN KEY (proposito_id) REFERENCES proposito(id)
       `);
+    }
+
+    const camposNodo = [
+      ["descripcion", "VARCHAR(500) NULL"], ["image_path", "VARCHAR(255) NULL"],
+      ["tipo_alimentacion", "ENUM('BATERIA','CORRIENTE_DIRECTA') NOT NULL DEFAULT 'BATERIA'"],
+      ["bateria_quimica", "VARCHAR(80) NULL"], ["bateria_capacidad_mah", "DECIMAL(10,2) NULL"],
+      ["bateria_porcentaje", "DECIMAL(5,2) NULL"], ["intervalo_lectura_segundos", "INT NULL"],
+      ["bateria_actualizada_at", "DATETIME NULL"], ["ultima_comunicacion", "DATETIME NULL"],
+    ];
+    for (const [nombre, definicion] of camposNodo) {
+      const [existe] = await connection.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='dispositivo' AND COLUMN_NAME=?`, [nombre]);
+      if (!existe.length) await connection.query(`ALTER TABLE dispositivo ADD COLUMN ${nombre} ${definicion}`);
     }
 
     await connection.commit();

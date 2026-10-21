@@ -7,6 +7,7 @@ import { lazy, Suspense } from "react";
 
 import "./style.css";
 import { AuthProvider } from "./context/AuthContext";
+import { SiteDimensionsProvider } from "./context/SiteDimensionsContext";
 
 const Login = lazy(() => import("./components/Login/Login"));
 const Home = lazy(() => import("./components/Inicio/Home"));
@@ -17,6 +18,7 @@ const Dispositivos = lazy(
 const Configuracion = lazy(
   () => import("./components/Configuracion/Configuracion"),
 );
+const Control = lazy(() => import("./components/Control/Control"));
 
 function App() {
   const [load, updateLoad] = useState(true);
@@ -30,7 +32,8 @@ function App() {
 
   return (
     <AuthProvider>
-      <Router>
+      <SiteDimensionsProvider>
+       <Router>
         <Preloader load={load} />
         <div className="App" id={load ? "no-scroll" : "scroll"}>
           <NavBar />
@@ -41,13 +44,15 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/datos" element={<Datos />} />
                 <Route path="/dispositivos" element={<Dispositivos />} />
+                <Route path="/control" element={<Control />} />
                 <Route path="/configuracion" element={<Configuracion />} />
               </Routes>
             </Suspense>
           </div>
           <Footer />
         </div>
-      </Router>
+       </Router>
+      </SiteDimensionsProvider>
     </AuthProvider>
   );
 }

@@ -11,12 +11,19 @@ import { pool } from "./db.js";
 import { fileURLToPath } from "url";
 import path from "path";
 import authRouter from "./routes/auth.js";
+import gatewayCommandsRouter from "./routes/gatewayCommands.js";
 
 dotenv.config();
 
 const app = express();
 app.set("etag", false);
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 4000;
+
+const corsOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,11 +31,13 @@ app.use(
   cors({
     origin: [
       "https://cima-invernadero.vercel.app",
-      "http://localhost:3000", // para seguir funcionando en desarrollo
+      "http://localhost:3000",
+      "http://localhost:3001",
+      ...corsOrigins,
     ],
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 app.use("/api/auth", authRouter);
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
@@ -63,8 +72,30 @@ app.get("/api/health", async (req, res) => {
 
 app.use("/api/lecturas", lecturasRouter);
 app.use("/api/dispositivos", dispositivosRouter);
+app.use("/api/gateway", gatewayCommandsRouter);
 app.use("/api/catalogos", catalogosRouter);
 app.use("/api/uploads", uploadsRouter);
+
+app.use((error, req, res, next) => {
+  if (error?.name === "MulterError") {
+    return res.status(400).json({ error: error.message });
+  }
+
+  if (error instanceof SyntaxError && "body" in error) {
+    return res.status(400).json({ error: "El cuerpo JSON no es válido" });
+  }
+
+  if (error?.status === 400) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  if (error) {
+    console.error("Error no controlado:", error.message);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+
+  next();
+});
 
 // Inicializa la base de datos y arranca el servidor
 async function inicializar() {

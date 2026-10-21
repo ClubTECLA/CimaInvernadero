@@ -1,0 +1,379 @@
+/* SECCIÓN: DISPOSITIVOS */
+.dispositivos-page {
+  width: 80%;
+  margin-bottom: 2rem;
+}
+
+.dispositivos-section {
+  margin: 2rem 0;
+}
+
+.hardware-note {
+  max-width: 68rem;
+  margin-top: 0.8rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #c9dfd0;
+  border-left: 4px solid #35875a;
+  border-radius: 0.65rem;
+  color: #365747;
+  background: #f0f7f2;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.hardware-note--compact { margin: 0.75rem 0; font-size: 0.82rem; }
+
+.add-button {
+  color: var(--blanco);
+  background-color: var(--verde-principal);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  border-color: transparent;
+  transition: transform 0.2s ease;
+}
+
+.device-status-filter {
+  min-width: 11rem;
+  margin-right: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #cfe0d5;
+  border-radius: 0.5rem;
+  color: #214438;
+  background: #ffffff;
+}
+
+.add-button:hover {
+  transform: translate(0, -0.375rem);
+  transition: transform 0.2s ease;
+}
+
+.actual-display h2 {
+  font-weight: 400;
+}
+
+.dispositivo-img {
+  display: block;
+  width: 240px;
+  max-width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 0.8rem;
+}
+
+.actual-display .dispositivo-img { width: 100%; height: 220px; }
+
+.dispositivo-img--default {
+  object-fit: contain;
+  object-position: center;
+}
+
+.estado-badge {
+  border-radius: 2rem;
+  padding: 0.2rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.actual-display {
+  padding: 2rem 0 2rem 1rem;
+}
+
+.actual-display-info {
+  margin-left: 1rem;
+}
+
+.actual-display-info > * {
+  margin: 1.5rem 0;
+}
+
+.actual-display-id {
+  margin-top: 0;
+  padding-top: 0;
+  font-size: smaller;
+}
+
+@media (max-width: 767px) {
+  .dispositivos-page {
+    width: 90%;
+  }
+
+  .dispositivos-title h1 {
+    position: absolute;
+  }
+
+  .dispositivos-title p,
+  dispositivos-title button {
+    margin-top: 3rem;
+  }
+
+  .dispositivo-img {
+    margin: auto;
+    width: min(100%, 260px);
+    height: 210px;
+  }
+
+  .actual-display .dispositivo-img { width: min(100%, 320px); height: 230px; }
+
+  .estado-badge {
+    display: block;
+    margin: auto;
+    width: fit-content;
+    margin-top: 1rem;
+  }
+
+  .actual-display-config-buttons {
+    display: flex;
+    justify-content: end;
+  }
+}
+
+.dispositivo-button {
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  color: #ffffff;
+  border-color: transparent;
+  margin-right: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.dispositivo-button:hover {
+  transform: translate(0, -0.375rem);
+  transition: transform 0.2s ease;
+}
+
+.editar-button {
+  background-color: var(--editar);
+}
+
+.eliminar-button {
+  background-color: var(--eliminar);
+}
+
+.empty-filter-message {
+  padding: 1.5rem;
+  border: 1px dashed #b9cabe;
+  border-radius: 0.8rem;
+  color: #64756d;
+  background: #f8fbf8;
+  text-align: center;
+}
+
+.nodo-list-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.nodo-list-heading h2 { margin: 0; }
+.nodo-list-heading > div > span { color: #64756d; font-size: 0.85rem; }
+
+.nodo-list-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  color: #64756d;
+}
+
+.dispositivo-card:focus-visible {
+  outline: 3px solid #16804b;
+  outline-offset: 3px;
+}
+
+.dispositivo-ubicacion-detalle {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: #64756d;
+  font-size: 0.9rem;
+}
+
+.node-location-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.node-location-size {
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  color: #537065;
+  background: #f0f7f1;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.node-image-preview {
+  width: 112px;
+  height: 88px;
+  object-fit: contain;
+  padding: 0.4rem;
+  border: 1px solid #dce5df;
+  border-radius: 0.65rem;
+  background: #f7faf8;
+}
+
+.node-image-empty {
+  display: grid;
+  width: 112px;
+  height: 88px;
+  place-items: center;
+  padding: 0.5rem;
+  border: 1px dashed #c7d8ce;
+  border-radius: 0.65rem;
+  color: #687b71;
+  background: #f7faf8;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .device-status-filter {
+    width: 100%;
+    margin: 0 0 0.6rem;
+  }
+
+  .nodo-list-heading { align-items: stretch; flex-direction: column; }
+}
+
+/* SECCIÓN: CONTROL Y PLANO DEL INVERNADERO */
+.node-location-card,
+.node-components-card,
+.node-telemetry-card {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #dce9df;
+  border-radius: 0.9rem;
+  background: linear-gradient(145deg, #fff, #f7fbf8);
+}
+
+.node-telemetry-card { background: #fff; }
+
+.node-power-card {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr);
+  align-items: end;
+  gap: 1rem;
+}
+
+.node-power-summary {
+  display: grid;
+  gap: 0.35rem;
+  grid-column: 1 / -1;
+  color: #315d4a;
+  font-size: 0.9rem;
+}
+
+.node-battery-profile { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+.node-power-summary small { color: #728279; }
+
+.node-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.node-telemetry-card > small {
+  display: block;
+  margin-top: 0.5rem;
+  color: #687b71;
+}
+
+.node-location-heading,
+.node-components-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.node-location-size,
+.node-components-heading > span {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  color: #245b4a;
+  background: #e8f4ec;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.node-dimensions-mini-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  margin-bottom: 0.8rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #e1ece4;
+  border-radius: 0.65rem;
+  background: #f5faf6;
+  color: #466154;
+  font-size: 0.82rem;
+}
+
+.node-dimensions-mini-card strong { color: #173d30; }
+.node-dimensions-mini-card i { padding: 0 0.2rem; color: #8aa393; font-style: normal; }
+
+.node-coordinate-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.node-location-zone {
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.55rem;
+  background: #eff7f1;
+  color: #315b46;
+  font-size: 0.88rem;
+}
+
+.node-components-heading { margin-bottom: 0.8rem; }
+.node-components-heading h3 { margin: 0; color: var(--verde-secundario); font-size: 1.05rem; }
+.node-components-heading small { color: #687b71; }
+
+.node-component-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+}
+
+.node-component-list { display: grid; gap: 0.45rem; }
+
+.node-component-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.9fr) minmax(150px, 0.9fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #e4ece6;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+
+.node-component-info { display: flex; min-width: 0; flex-direction: column; }
+.node-component-info strong { color: #173d30; }
+.node-component-info small { color: #687b71; font-size: 0.75rem; }
+
+@media (max-width: 575px) {
+  .node-location-card, .node-components-card, .node-telemetry-card { padding: 0.75rem; }
+  .node-power-card { grid-template-columns: 1fr; }
+  .node-battery-profile { grid-template-columns: 1fr; }
+  .node-coordinate-grid { grid-template-columns: 1fr; }
+  .node-telemetry-grid { grid-template-columns: 1fr; }
+  .node-component-add { grid-template-columns: 1fr; }
+  .node-component-item { grid-template-columns: 1fr auto; }
+  .node-component-item .form-select { grid-column: 1 / -1; }
+}

@@ -113,6 +113,14 @@ router.delete("/:id", verificarToken, async (req, res) => {
       });
     }
 
+    const [tiposDispositivo] = await pool.query(
+      "SELECT COUNT(*) AS total FROM tipo_dispositivo_tipo_dato WHERE tipo_dato_id = ?",
+      [id],
+    );
+    if (Number(tiposDispositivo[0].total) > 0) {
+      return res.status(409).json({ error: "No se puede eliminar, este tipo de dato está asignado a uno o más tipos de sensor" });
+    }
+
     const [result] = await pool.query("DELETE FROM tipo_dato WHERE id = ?", [
       id,
     ]);

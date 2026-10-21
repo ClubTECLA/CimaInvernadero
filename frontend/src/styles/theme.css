@@ -1,0 +1,511 @@
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --verde-principal: #16804b;
+  --verde-principal-alfa: #12623ccc;
+  --verde-secundario: #b7e4c7;
+  --verde-claro: #75c991;
+  --blanco: #202b26;
+  --fondo: #151c19;
+  --gris-fondo: #303c36;
+  --blanco-fondo: #202b26;
+  --negro: #e7eee9;
+  --theme-surface: #202b26;
+  --theme-surface-raised: #293a31;
+  --theme-surface-soft: #24332b;
+  --theme-border: #40564a;
+  --theme-text: #e4ece7;
+  --theme-muted: #b8ccc0;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --theme-surface: #ffffff;
+  --theme-surface-raised: #f8fbf9;
+  --theme-surface-soft: #f0f7f1;
+  --theme-border: #dce9df;
+  --theme-text: #183c30;
+  --theme-muted: #64756d;
+}
+
+:root[data-theme="dark"] body {
+  color: #e4ece7;
+  background: var(--fondo);
+}
+
+:root[data-theme] body,
+:root[data-theme] .App { transition: background-color 180ms ease, color 180ms ease; }
+
+:root[data-theme="dark"] h1,
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] h3,
+:root[data-theme="dark"] h4,
+:root[data-theme="dark"] p,
+:root[data-theme="dark"] label,
+:root[data-theme="dark"] .form-label,
+:root[data-theme="dark"] .text-body,
+:root[data-theme="dark"] .actual-display h2,
+:root[data-theme="dark"] .control-header h1,
+:root[data-theme="dark"] .section-heading h2,
+:root[data-theme="dark"] .map-card-heading h2,
+:root[data-theme="dark"] .actuator-card h2 {
+  color: #e4ece7;
+}
+
+:root[data-theme="dark"] .card-component,
+:root[data-theme="dark"] .actuator-management-form,
+:root[data-theme="dark"] .actuator-management-list,
+:root[data-theme="dark"] .login-card,
+:root[data-theme="dark"] .map-card,
+:root[data-theme="dark"] .actuator-card,
+:root[data-theme="dark"] .sensor-section,
+:root[data-theme="dark"] .zone-map-card,
+:root[data-theme="dark"] .zone-list-card,
+:root[data-theme="dark"] .home-section,
+:root[data-theme="dark"] .home-node-details,
+:root[data-theme="dark"] .home-dimension-card,
+:root[data-theme="dark"] .node-location-card,
+:root[data-theme="dark"] .node-components-card,
+:root[data-theme="dark"] .node-telemetry-card,
+:root[data-theme="dark"] .node-component-item,
+:root[data-theme="dark"] .actuator-rules,
+:root[data-theme="dark"] .sensor-card,
+:root[data-theme="dark"] .zone-list-row,
+:root[data-theme="dark"] .tipo-dato-selector,
+:root[data-theme="dark"] .tipo-dato-option,
+:root[data-theme="dark"] .empty-filter-message,
+:root[data-theme="dark"] .home-clear-node,
+:root[data-theme="dark"] .pagination-footer,
+:root[data-theme="dark"] .table-responsive,
+:root[data-theme="dark"] .modal-content,
+:root[data-theme="dark"] .modal-header,
+:root[data-theme="dark"] .modal-footer,
+:root[data-theme="dark"] .dropdown-menu,
+:root[data-theme="dark"] .table,
+:root[data-theme="dark"] .data-page-section {
+  color: var(--theme-text);
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+}
+
+:root[data-theme="dark"] .home-plan-note,
+:root[data-theme="dark"] .map-dimension,
+:root[data-theme="dark"] .sensor-count,
+:root[data-theme="dark"] .home-location-selector .form-select,
+:root[data-theme="dark"] .home-location-selector .form-select:disabled,
+:root[data-theme="dark"] .device-status-filter,
+:root[data-theme="dark"] .home-dimension-main,
+:root[data-theme="dark"] .node-dimensions-mini-card,
+:root[data-theme="dark"] .node-location-zone,
+:root[data-theme="dark"] .node-location-size,
+:root[data-theme="dark"] .node-components-heading > span,
+:root[data-theme="dark"] .home-plan-frame,
+:root[data-theme="dark"] .zone-map-canvas,
+:root[data-theme="dark"] .zone-map-size,
+:root[data-theme="dark"] .zone-list-heading > span,
+:root[data-theme="dark"] .zone-list-row.selected,
+:root[data-theme="dark"] .home-plan-note,
+:root[data-theme="dark"] .general-state,
+:root[data-theme="dark"] .pagination-btn,
+:root[data-theme="dark"] .node-image-preview,
+:root[data-theme="dark"] .node-image-empty,
+:root[data-theme="dark"] .actuator-output-indicator,
+:root[data-theme="dark"] .actuator-output-indicator.is-on,
+:root[data-theme="dark"] .sensor-card-telemetry,
+:root[data-theme="dark"] .control-refresh,
+:root[data-theme="dark"] .actuator-management-row,
+:root[data-theme="dark"] .actuator-rule-form,
+:root[data-theme="dark"] .actuator-rule-summary li,
+:root[data-theme="dark"] .home-node-details-empty {
+  color: #d7e6dc;
+  background-color: #293a31;
+  border-color: #40564a;
+}
+
+:root[data-theme="dark"] .home-node-details-empty {
+  background: transparent;
+}
+
+:root[data-theme="dark"] .home-location-selector .form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e4ece7' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+:root[data-theme="dark"] .home-node-details-empty p,
+:root[data-theme="dark"] .home-node-details-empty h2 { background: transparent; }
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] .form-control,
+:root[data-theme="dark"] .form-select {
+  color: #e4ece7;
+  background-color: #17211c;
+  border-color: #536b5d;
+}
+
+:root[data-theme="dark"] .filter select {
+  color: #e4ece7;
+  background-color: #17211c;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23c2d5c9' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m3 6 5 5 5-5'/%3E%3C/svg%3E");
+}
+
+:root[data-theme="dark"] .form-check-input {
+  background-color: #17211c;
+  border-color: #71877a;
+}
+
+:root[data-theme="dark"] .form-check-input:checked {
+  background-color: #16804b;
+  border-color: #16804b;
+}
+
+:root[data-theme="dark"] .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
+:root[data-theme="dark"] .modal-header,
+:root[data-theme="dark"] .modal-footer { border-color: var(--theme-border); }
+:root[data-theme="dark"] .dropdown-item { color: var(--theme-text); }
+:root[data-theme="dark"] .dropdown-item:hover,
+:root[data-theme="dark"] .dropdown-item:focus { color: #fff; background: #354a3e; }
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder { color: #a4b6aa; }
+
+:root[data-theme="dark"] option {
+  color: var(--theme-text);
+  background: #17211c;
+}
+
+/* React Select genera su propio menú y no hereda los estilos nativos. */
+:root[data-theme="dark"] .react-select__control,
+:root[data-theme="dark"] .react-select__menu,
+:root[data-theme="dark"] .react-select__menu-list {
+  color: var(--theme-text);
+  background: #17211c;
+  border-color: #536b5d;
+}
+:root[data-theme="dark"] .react-select__single-value,
+:root[data-theme="dark"] .react-select__input-container,
+:root[data-theme="dark"] .react-select__placeholder,
+:root[data-theme="dark"] .react-select__dropdown-indicator,
+:root[data-theme="dark"] .react-select__clear-indicator { color: #d7e6dc; }
+:root[data-theme="dark"] .react-select__option { color: #e4ece7; background: #17211c; }
+:root[data-theme="dark"] .react-select__option--is-focused { background: #354a3e; }
+:root[data-theme="dark"] .react-select__option--is-selected { color: #fff; background: #17623b; }
+:root[data-theme="dark"] .react-select__indicator-separator { background: #536b5d; }
+
+:root[data-theme="dark"] .table {
+  --bs-table-color: #e4ece7;
+  --bs-table-bg: #202b26;
+  --bs-table-border-color: #40564a;
+}
+
+:root[data-theme="dark"] .catalogos-auth-notice,
+:root[data-theme="dark"] .catalogo-data-associations,
+:root[data-theme="dark"] .admin-record-id,
+:root[data-theme="dark"] .records-total,
+:root[data-theme="dark"] .home-plan-note,
+:root[data-theme="dark"] .control-header p,
+:root[data-theme="dark"] .map-card-heading p,
+:root[data-theme="dark"] .eyebrow {
+  color: #b8ccc0;
+}
+
+:root[data-theme="dark"] .control-header .control-connectivity-note {
+  border-color: #405f4b;
+  border-left-color: #65bd83;
+  background: #24372d;
+  color: #d1e8d9;
+}
+
+:root[data-theme="dark"] .control-header .control-connectivity-note strong {
+  color: #c4ead1;
+}
+
+:root[data-theme="dark"] .catalogos-display > .card-component,
+:root[data-theme="dark"] .zone-list-heading,
+:root[data-theme="dark"] .home-node-details-heading,
+:root[data-theme="dark"] .home-node-latest-readings,
+:root[data-theme="dark"] .pagination-footer,
+:root[data-theme="dark"] .node-component-item,
+:root[data-theme="dark"] .node-location-card,
+:root[data-theme="dark"] .node-components-card,
+:root[data-theme="dark"] .node-telemetry-card {
+  border-color: var(--theme-border);
+}
+
+:root[data-theme="dark"] .home-node-details-list dt,
+:root[data-theme="dark"] .home-node-details-empty p,
+:root[data-theme="dark"] .home-node-details-heading p,
+:root[data-theme="dark"] .home-node-latest-readings > p,
+:root[data-theme="dark"] .home-node-readings-status,
+:root[data-theme="dark"] .home-unlocated-note,
+:root[data-theme="dark"] .home-map-footer,
+:root[data-theme="dark"] .home-dimension-card span,
+:root[data-theme="dark"] .home-dimension-card small,
+:root[data-theme="dark"] .zona-dimensiones,
+:root[data-theme="dark"] .zone-map-caption,
+:root[data-theme="dark"] .zone-map-heading p,
+:root[data-theme="dark"] .zone-list-copy small,
+:root[data-theme="dark"] .catalogo-data-associations,
+:root[data-theme="dark"] .node-power-summary,
+:root[data-theme="dark"] .node-power-summary small,
+:root[data-theme="dark"] .node-telemetry-card > small,
+:root[data-theme="dark"] .node-components-heading small,
+:root[data-theme="dark"] .node-component-info small,
+:root[data-theme="dark"] .empty-filter-message,
+:root[data-theme="dark"] .dispositivo-ubicacion-detalle,
+:root[data-theme="dark"] .page-size-control,
+:root[data-theme="dark"] .pagination-ellipsis,
+:root[data-theme="dark"] .actuator-task-control,
+:root[data-theme="dark"] .actuator-management-info,
+:root[data-theme="dark"] .actuator-rules-heading > div,
+:root[data-theme="dark"] .actuator-rule-summary,
+:root[data-theme="dark"] .sensor-card-title,
+:root[data-theme="dark"] .sensor-card p {
+  color: var(--theme-muted);
+}
+
+:root[data-theme="dark"] .home-node-details-empty h2,
+:root[data-theme="dark"] .home-node-details-heading h2,
+:root[data-theme="dark"] .home-node-latest-readings h3,
+:root[data-theme="dark"] .home-dimension-card strong,
+:root[data-theme="dark"] .zone-map-heading h3,
+:root[data-theme="dark"] .zone-list-heading h3,
+:root[data-theme="dark"] .zone-list-copy strong,
+:root[data-theme="dark"] .node-dimensions-mini-card strong,
+:root[data-theme="dark"] .node-component-info strong,
+:root[data-theme="dark"] .control-header h1,
+:root[data-theme="dark"] .section-heading h2,
+:root[data-theme="dark"] .map-card-heading h2,
+:root[data-theme="dark"] .actuator-card h2,
+:root[data-theme="dark"] .actuator-management-title,
+:root[data-theme="dark"] .actuator-node-group h3,
+:root[data-theme="dark"] .actuator-rules-heading > div,
+:root[data-theme="dark"] .actuator-rule-summary strong,
+:root[data-theme="dark"] .sensor-card-title {
+  color: #c4ead1;
+}
+
+:root[data-theme="dark"] .actual-display-info,
+:root[data-theme="dark"] .actual-display-info strong,
+:root[data-theme="dark"] .dispositivo-card,
+:root[data-theme="dark"] .dispositivo-card strong,
+:root[data-theme="dark"] .nodo-card-meta,
+:root[data-theme="dark"] .nodo-card-telemetria,
+:root[data-theme="dark"] .nodo-telemetria,
+:root[data-theme="dark"] .nodo-telemetria strong,
+:root[data-theme="dark"] .single-display-info,
+:root[data-theme="dark"] .catalogo-dato-name,
+:root[data-theme="dark"] .page-size-control label,
+:root[data-theme="dark"] .filter,
+:root[data-theme="dark"] .filter-section-title,
+:root[data-theme="dark"] .lectura-label,
+:root[data-theme="dark"] .lectura-valor {
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .nodo-card-meta,
+:root[data-theme="dark"] .nodo-card-telemetria,
+:root[data-theme="dark"] .catalogo-dato-unidad,
+:root[data-theme="dark"] .catalogo-data-associations,
+:root[data-theme="dark"] .home-plan-note,
+:root[data-theme="dark"] .filter-section-title p {
+  color: #b8ccc0;
+}
+
+:root[data-theme="dark"] .nodo-list-heading > div > span,
+:root[data-theme="dark"] .nodo-list-pagination,
+:root[data-theme="dark"] .catalogos-auth-notice {
+  color: #c4d5ca;
+}
+
+:root[data-theme="dark"] .catalogos-auth-notice {
+  background: #24372d;
+  border-color: #40564a;
+  border-left-color: #65bd83;
+}
+:root[data-theme="dark"] .catalogos-auth-notice strong { color: #c4ead1; }
+
+:root[data-theme="dark"] .catalogo-dato-unidad {
+  color: #c6f0d7;
+  background: #274c39;
+}
+
+:root[data-theme="dark"] .lectura-card {
+  background-color: hsl(var(--metric-hue) 34% 23%);
+  border-color: hsl(var(--metric-hue) 38% 43%);
+  border-top-color: hsl(var(--metric-hue) 55% 58%);
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .lectura-muestras,
+:root[data-theme="dark"] .lecturas-sin-datos { color: var(--theme-muted); }
+
+:root[data-theme="dark"] .filter-section-title,
+:root[data-theme="dark"] .filter-section-title h1,
+:root[data-theme="dark"] .filter-section-title h2,
+:root[data-theme="dark"] .lecturas-title,
+:root[data-theme="dark"] .dispositivos-title,
+:root[data-theme="dark"] .data-section {
+  color: var(--theme-text);
+  background: transparent;
+}
+
+:root[data-theme="dark"] .node-image-preview,
+:root[data-theme="dark"] .node-image-empty {
+  background: #17211c;
+}
+
+:root[data-theme="dark"] .zone-map-segment,
+:root[data-theme="dark"] .zone-list-select {
+  color: #eef8f1 !important;
+}
+
+:root[data-theme="dark"] .zone-map-segment { text-shadow: 0 1px 2px #17211c; }
+
+:root[data-theme="dark"] .home-node-marker { border-color: #17211c; }
+:root[data-theme="dark"] .home-status-legend { color: #b8ccc0; }
+
+:root[data-theme="dark"] .catalogo-category-sensor { color: #bdf3d2; background: #205b3d; border-color: #37845b; }
+:root[data-theme="dark"] .catalogo-category-actuador { color: #ffe0a3; background: #644716; border-color: #96702a; }
+:root[data-theme="dark"] .catalogo-dispositivo-row,
+:root[data-theme="dark"] .catalogo-dato-row { color: var(--theme-text); border-color: #40564a; background: #24332b; }
+:root[data-theme="dark"] .catalogo-dispositivo-row:hover,
+:root[data-theme="dark"] .catalogo-dato-row:hover { border-color: #6b9c7c; background: #293a31; }
+:root[data-theme="dark"] .zone-color-0 { background-color: rgba(94, 194, 145, 0.34) !important; }
+:root[data-theme="dark"] .zone-color-1 { background-color: rgba(100, 170, 225, 0.34) !important; }
+:root[data-theme="dark"] .zone-color-2 { background-color: rgba(244, 195, 92, 0.34) !important; }
+:root[data-theme="dark"] .zone-color-3 { background-color: rgba(198, 145, 220, 0.32) !important; }
+:root[data-theme="dark"] .zone-color-4 { background-color: rgba(235, 133, 120, 0.32) !important; }
+:root[data-theme="dark"] .zone-map-segment.selected { border-color: var(--zone-accent) !important; box-shadow: 0 0 0 3px var(--zone-tint); }
+:root[data-theme="dark"] .zone-list-row.selected { background-color: var(--zone-tint); border-color: var(--zone-accent); }
+
+:root[data-theme="dark"] .table > :not(caption) > * > * {
+  color: var(--theme-text);
+  background-color: var(--theme-surface);
+  border-color: var(--theme-border);
+}
+:root[data-theme="dark"] .table-head th {
+  color: #fff;
+  background-color: #17623b;
+}
+
+:root[data-theme="dark"] .alert-danger { color: #ffd8d8; background-color: #57292b; border-color: #794145; }
+:root[data-theme="dark"] .alert-success { color: #d5f4df; background-color: #214934; border-color: #3b7652; }
+:root[data-theme="dark"] .alert-warning { color: #ffedbd; background-color: #55451e; border-color: #79652f; }
+:root[data-theme="dark"] .text-muted { color: #aabbb0 !important; }
+:root[data-theme="dark"] hr { border-color: #53675b; opacity: 0.8; }
+
+:root[data-theme="dark"] .catalogo-category-sensor { color: #bdf3d2; background-color: #205b3d; border-color: #37845b; }
+:root[data-theme="dark"] .catalogo-category-actuador { color: #ffe0a3; background-color: #644716; border-color: #96702a; }
+:root[data-theme="dark"] .hardware-note { color: #d1e8d9; background: #24372d; border-color: #405f4b; border-left-color: #65bd83; }
+:root[data-theme="dark"] .node-carousel-button { color: #c7f0d4; background: #263b2e; border-color: #557562; }
+:root[data-theme="dark"] .node-carousel-button:hover:not(:disabled) { color: #fff; background: #237648; }
+:root[data-theme="dark"] .node-carousel-button:disabled { color: #849289 !important; background: #334239 !important; border-color: #43594b !important; }
+:root[data-theme="dark"] .zone-form-dimensions-size { color: #d1e8d9; background: #24372d; }
+:root[data-theme="dark"] .zone-form-axis { border-color: #405f4b; }
+:root[data-theme="dark"] .actuator-rule-blocked { color: #f2dda7; background: #443a23; border-color: #685a31; border-left-color: #d2a544; }
+:root[data-theme="dark"] .actuator-rule-blocked svg { color: #e2bd61; }
+:root[data-theme="dark"] .node-communication-indicator.is-reciente { color: #bdf3d2; background: #205b3d; border-color: #37845b; }
+:root[data-theme="dark"] .node-communication-indicator.is-sin-conexion { color: #ffd0c8; background: #552d2b; border-color: #82443d; }
+:root[data-theme="dark"] .node-communication-indicator.is-sin-reporte,
+:root[data-theme="dark"] .node-communication-indicator.is-indeterminado { color: #ffe0a3; background: #51431f; border-color: #76602b; }
+
+:root[data-theme="dark"] .navbar .navbar-brand p { color: #fff; }
+:root[data-theme="light"] .navbar,
+:root[data-theme="light"] .footer { background-color: #075b36 !important; }
+:root[data-theme="light"] .navbar.sticky {
+  background-color: rgba(7, 91, 54, 0.78) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+:root[data-theme="dark"] .navbar,
+:root[data-theme="dark"] .footer { background-color: #123e2d !important; }
+:root[data-theme="dark"] .navbar.sticky {
+  background-color: rgba(18, 62, 45, 0.78) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+:root[data-theme="dark"] .tipo-dato-selector,
+:root[data-theme="dark"] .tipo-dato-option {
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+  border-color: var(--theme-border);
+}
+:root[data-theme="dark"] .tipo-dato-option:has(input:checked) {
+  background: #234a35;
+  border-color: #63b982;
+}
+:root[data-theme="dark"] .tipo-dato-option-copy small {
+  color: #d1f1dc;
+  background: #31563f;
+}
+:root[data-theme="dark"] .tipo-dato-selector-hint { color: var(--theme-muted); }
+
+:root[data-theme="dark"] .actuator-management-form,
+:root[data-theme="dark"] .actuator-management-list {
+  color: var(--theme-text);
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+}
+:root[data-theme="dark"] .actuator-management-list .section-heading h2,
+:root[data-theme="dark"] .actuator-management-title,
+:root[data-theme="dark"] .actuator-node-group h3 { color: #c4ead1; }
+:root[data-theme="dark"] .actuator-management-data,
+:root[data-theme="dark"] .actuator-node-group h3 small { color: var(--theme-muted); }
+
+:root[data-theme="dark"] .node-state__control,
+:root[data-theme="dark"] .node-state__menu,
+:root[data-theme="dark"] .node-state__menu-list {
+  color: #e4ece7;
+  background: #17211c;
+  border-color: #536b5d;
+  box-shadow: none;
+}
+:root[data-theme="dark"] .node-state__control:hover { border-color: #8eb7a0; }
+:root[data-theme="dark"] .node-state__control--is-focused {
+  border-color: #70b58b;
+  box-shadow: 0 0 0 2px rgba(112, 181, 139, 0.25);
+}
+:root[data-theme="dark"] .node-state__single-value,
+:root[data-theme="dark"] .node-state__placeholder,
+:root[data-theme="dark"] .node-state__input-container,
+:root[data-theme="dark"] .node-state__dropdown-indicator { color: #e4ece7; }
+:root[data-theme="dark"] .node-state__option { color: #e4ece7; background: #17211c; }
+:root[data-theme="dark"] .node-state__option--is-focused { background: #354a3e; }
+:root[data-theme="dark"] .node-state__option--is-selected { color: #fff; background: #17623b; }
+:root[data-theme="dark"] .node-state__indicator-separator { background: #536b5d; }
+
+:root[data-theme="dark"] .actual-display .dispositivo-img { width: 100%; height: 220px; max-width: 100%; }
+
+:root[data-theme="dark"] .filter-reset-button {
+  color: #d7f0df;
+  background: #294536;
+  border-color: #4e8c64;
+}
+:root[data-theme="dark"] .filter-reset-button:hover { background: #345a42; }
+:root[data-theme="dark"] .pagination-jump { color: var(--theme-muted); }
+:root[data-theme="dark"] .pagination-jump input {
+  color: var(--theme-text);
+  background: #17211c;
+  border-color: #536b5d;
+}
+
+/* Mantiene los selectores sin opciones claramente inactivos en ambos temas. */
+:root[data-theme="light"] select.form-select:disabled {
+  color: #68756e;
+  background-color: #e9eeeb;
+  border-color: #d2dbd6;
+  opacity: 1;
+  cursor: not-allowed;
+}
+:root[data-theme="dark"] select.form-select:disabled {
+  color: #aebbb3;
+  background-color: #303b35;
+  border-color: #49574f;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}

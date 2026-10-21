@@ -2,8 +2,32 @@ import { Router } from "express";
 import { pool } from "../db.js";
 
 import { verificarToken } from "../middleware/auth.js";
+import {
+  isFiniteNumber,
+  isIsoDateOrDateTime,
+  parsePositiveInteger,
+} from "../utils/validation.js";
 
 const router = Router();
+
+function fechaParaConsulta(valor, esFinal = false) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+    return `${valor} ${esFinal ? "23:59:59" : "00:00:00"}`;
+  }
+  return new Date(valor).toISOString().slice(0, 19).replace("T", " ");
+}
+
+function convertirFechaComparacion(valor, esFinal = false) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+    return Date.parse(`${valor}T${esFinal ? "23:59:59.999" : "00:00:00.000"}Z`);
+  }
+  return Date.parse(valor);
+}
+
+function valorCsv(valor) {
+  if (valor === null || valor === undefined) return "";
+  return `"${String(valor).replace(/"/g, '""')}"`;
+}
 
 // GET /api/lecturas -> todas las lecturas, con filtros opcionales
 router.get("/", async (req, res) => {
@@ -15,8 +39,26 @@ router.get("/", async (req, res) => {
     fecha_inicio,
     fecha_fin,
   } = req.query;
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 20;
+  const page = parsePositiveInteger(req.query.page, 1);
+  const limit = parsePositiveInteger(req.query.limit, 20, 100);
+
+  if (page === null || limit === null) {
+    return res.status(400).json({
+      error: "page debe ser un entero positivo y limit debe estar entre 1 y 100",
+    });
+  }
+
+  if (!isIsoDateOrDateTime(fecha_inicio) || !isIsoDateOrDateTime(fecha_fin)) {
+    return res
+      .status(400)
+      .json({ error: "Las fechas deben usar el formato YYYY-MM-DD" });
+  }
+
+  if (fecha_inicio && fecha_fin && convertirFechaComparacion(fecha_inicio) > convertirFechaComparacion(fecha_fin, true)) {
+    return res.status(400).json({
+      error: "La fecha inicial no puede ser posterior a la fecha final",
+    });
+  }
   const offset = (page - 1) * limit;
 
   const condiciones = [];
@@ -40,11 +82,11 @@ router.get("/", async (req, res) => {
   }
   if (fecha_inicio) {
     condiciones.push("l.created_at >= ?");
-    valores.push(fecha_inicio + " 00:00:00");
+    valores.push(fechaParaConsulta(fecha_inicio));
   }
   if (fecha_fin) {
     condiciones.push("l.created_at <= ?");
-    valores.push(fecha_fin + " 23:59:59");
+    valores.push(fechaParaConsulta(fecha_fin, true));
   }
 
   const where =
@@ -56,6 +98,7 @@ router.get("/", async (req, res) => {
       SELECT 
         l.id,
         l.dato,
+        l.bateria_porcentaje,
         l.created_at,
         td.nombre  AS tipo_dato,
         td.unidad,
@@ -65,8 +108,8 @@ router.get("/", async (req, res) => {
       FROM lecturas l
       JOIN tipo_dato        td ON l.tipo_dato_id   = td.id
       JOIN dispositivo      d  ON l.dispositivo_id = d.id
-      JOIN zona             z  ON d.zona_id        = z.id
-      JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
+      LEFT JOIN zona        z  ON d.zona_id        = z.id
+      LEFT JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
       ${where}
       ORDER BY l.created_at DESC
       LIMIT ? OFFSET ?
@@ -79,8 +122,8 @@ router.get("/", async (req, res) => {
       FROM lecturas l
       JOIN tipo_dato        td ON l.tipo_dato_id   = td.id
       JOIN dispositivo      d  ON l.dispositivo_id = d.id
-      JOIN zona             z  ON d.zona_id        = z.id
-      JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
+      LEFT JOIN zona        z  ON d.zona_id        = z.id
+      LEFT JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
       ${where}`,
       valores,
     );
@@ -98,6 +141,64 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /api/lecturas/exportar/previa -> estado actual de los nodos incluidos en la exportación
+router.get("/exportar/previa", async (req, res) => {
+  const { dispositivo_id, tipo_dato_id, zona_id, tipo_dispositivo_id, fecha_inicio, fecha_fin } = req.query;
+
+  if (!isIsoDateOrDateTime(fecha_inicio) || !isIsoDateOrDateTime(fecha_fin)) {
+    return res.status(400).json({ error: "Las fechas deben usar el formato YYYY-MM-DD" });
+  }
+  if (fecha_inicio && fecha_fin && convertirFechaComparacion(fecha_inicio) > convertirFechaComparacion(fecha_fin, true)) {
+    return res.status(400).json({ error: "La fecha inicial no puede ser posterior a la fecha final" });
+  }
+
+  const condicionesLecturas = [];
+  const valoresLecturas = [];
+  if (dispositivo_id) { condicionesLecturas.push("l.dispositivo_id = ?"); valoresLecturas.push(dispositivo_id); }
+  if (tipo_dato_id) { condicionesLecturas.push("l.tipo_dato_id = ?"); valoresLecturas.push(tipo_dato_id); }
+  if (tipo_dispositivo_id) { condicionesLecturas.push("dl.tipo_id = ?"); valoresLecturas.push(tipo_dispositivo_id); }
+  if (zona_id) { condicionesLecturas.push("dl.zona_id = ?"); valoresLecturas.push(zona_id); }
+  if (fecha_inicio) { condicionesLecturas.push("l.created_at >= ?"); valoresLecturas.push(fechaParaConsulta(fecha_inicio)); }
+  if (fecha_fin) { condicionesLecturas.push("l.created_at <= ?"); valoresLecturas.push(fechaParaConsulta(fecha_fin, true)); }
+  const whereLecturas = condicionesLecturas.length ? `WHERE ${condicionesLecturas.join(" AND ")}` : "";
+
+  const condicionesNodos = [];
+  const valoresNodos = [];
+  if (dispositivo_id) { condicionesNodos.push("d.id = ?"); valoresNodos.push(dispositivo_id); }
+  if (tipo_dispositivo_id) { condicionesNodos.push("d.tipo_id = ?"); valoresNodos.push(tipo_dispositivo_id); }
+  if (zona_id) { condicionesNodos.push("d.zona_id = ?"); valoresNodos.push(zona_id); }
+  const whereNodos = condicionesNodos.length ? `WHERE ${condicionesNodos.join(" AND ")}` : "";
+
+  try {
+    const [rows] = await pool.query(`
+      WITH lecturas_filtradas AS (
+        SELECT l.dispositivo_id, l.tipo_dato_id, l.dato, l.created_at,
+               ROW_NUMBER() OVER (PARTITION BY l.dispositivo_id, l.tipo_dato_id ORDER BY l.created_at DESC, l.id DESC) AS orden
+        FROM lecturas l
+        JOIN dispositivo dl ON dl.id = l.dispositivo_id
+        ${whereLecturas}
+      )
+      SELECT d.id AS nodo_id, d.nombre AS nodo, d.tipo_alimentacion,
+             d.bateria_porcentaje AS bateria_actual, d.bateria_actualizada_at,
+             CASE WHEN d.specs_id IS NOT NULL AND d.specs_id <> 1 THEN e.largo END AS ubicacion_largo,
+             CASE WHEN d.specs_id IS NOT NULL AND d.specs_id <> 1 THEN e.ancho END AS ubicacion_ancho,
+             CASE WHEN d.specs_id IS NOT NULL AND d.specs_id <> 1 THEN e.altura END AS ubicacion_altura,
+             z.zona, td.nombre AS tipo_dato, td.unidad, lf.dato AS valor, lf.created_at AS fecha_lectura
+      FROM dispositivo d
+      LEFT JOIN especificaciones e ON e.id = d.specs_id
+      LEFT JOIN zona z ON z.id = d.zona_id
+      LEFT JOIN lecturas_filtradas lf ON lf.dispositivo_id = d.id AND lf.orden = 1
+      LEFT JOIN tipo_dato td ON td.id = lf.tipo_dato_id
+      ${whereNodos}
+      ORDER BY d.nombre, td.nombre
+    `, [...valoresLecturas, ...valoresNodos]);
+    res.json(rows);
+  } catch (error) {
+    console.error("Error al preparar vista previa de exportación:", error.message);
+    res.status(500).json({ error: "No fue posible preparar la vista previa" });
+  }
+});
+
 // GET /api/lecturas/exportar?filtros...
 router.get("/exportar", async (req, res) => {
   const {
@@ -108,6 +209,18 @@ router.get("/exportar", async (req, res) => {
     fecha_inicio,
     fecha_fin,
   } = req.query;
+
+  if (!isIsoDateOrDateTime(fecha_inicio) || !isIsoDateOrDateTime(fecha_fin)) {
+    return res
+      .status(400)
+      .json({ error: "Las fechas deben usar el formato YYYY-MM-DD" });
+  }
+
+  if (fecha_inicio && fecha_fin && convertirFechaComparacion(fecha_inicio) > convertirFechaComparacion(fecha_fin, true)) {
+    return res.status(400).json({
+      error: "La fecha inicial no puede ser posterior a la fecha final",
+    });
+  }
 
   const condiciones = [];
   const valores = [];
@@ -130,11 +243,11 @@ router.get("/exportar", async (req, res) => {
   }
   if (fecha_inicio) {
     condiciones.push("l.created_at >= ?");
-    valores.push(fecha_inicio + " 00:00:00");
+    valores.push(fechaParaConsulta(fecha_inicio));
   }
   if (fecha_fin) {
     condiciones.push("l.created_at <= ?");
-    valores.push(fecha_fin + " 23:59:59");
+    valores.push(fechaParaConsulta(fecha_fin, true));
   }
 
   const where =
@@ -144,30 +257,42 @@ router.get("/exportar", async (req, res) => {
     const [rows] = await pool.query(
       `
       SELECT 
-        l.id,
         l.dato,
         l.created_at,
         td.nombre AS tipo_dato,
         td.unidad,
         d.nombre  AS dispositivo,
+        d.tipo_alimentacion,
+        d.bateria_porcentaje AS bateria_actual,
+        CASE WHEN d.specs_id IS NOT NULL AND d.specs_id <> 1 THEN e.largo END AS ubicacion_largo,
+        CASE WHEN d.specs_id IS NOT NULL AND d.specs_id <> 1 THEN e.ancho END AS ubicacion_ancho,
+        CASE WHEN d.specs_id IS NOT NULL AND d.specs_id <> 1 THEN e.altura END AS ubicacion_altura,
         z.zona
       FROM lecturas l
       JOIN tipo_dato        td ON l.tipo_dato_id   = td.id
       JOIN dispositivo      d  ON l.dispositivo_id = d.id
-      JOIN zona             z  ON d.zona_id        = z.id
-      JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
+      LEFT JOIN especificaciones e ON e.id = d.specs_id
+      LEFT JOIN zona        z  ON d.zona_id        = z.id
+      LEFT JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
       ${where}
       ORDER BY l.created_at DESC
     `,
       valores,
     );
 
-    const encabezado = "ID,Dispositivo,Zona,Tipo de dato,Valor,Unidad,Fecha\n";
+    const columnas = ["Nodo", "Ubicación (largo × ancho × altura, m)", "Zona", "Tipo de dato", "Valor", "Unidad", "Batería actual (%)", "Fecha de lectura"];
+    const encabezado = `${columnas.map(valorCsv).join(",")}\n`;
     const filas = rows
-      .map(
-        (l) =>
-          `${l.id},"${l.dispositivo}","${l.zona}","${l.tipo_dato}",${l.dato},"${l.unidad}","${new Date(l.created_at).toLocaleString("es-MX")}"`,
-      )
+      .map((l) => {
+        const tieneUbicacion = l.ubicacion_largo !== null && l.ubicacion_largo !== undefined;
+        const ubicacion = tieneUbicacion
+          ? `${Number(l.ubicacion_largo).toFixed(2)} × ${Number(l.ubicacion_ancho).toFixed(2)} × ${Number(l.ubicacion_altura).toFixed(2)} m`
+          : "Sin ubicación registrada";
+        const bateria = l.tipo_alimentacion === "CORRIENTE_DIRECTA" ? "No aplica" : l.bateria_actual ?? "Sin dato";
+        return [l.dispositivo, ubicacion, l.zona || "Sin zona asignada", l.tipo_dato, l.dato, l.unidad, bateria, new Date(l.created_at).toLocaleString("es-MX")]
+          .map(valorCsv)
+          .join(",");
+      })
       .join("\n");
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -198,8 +323,8 @@ router.get("/ultimas", async (req, res) => {
       FROM lecturas l
       JOIN tipo_dato        td ON l.tipo_dato_id   = td.id
       JOIN dispositivo      d  ON l.dispositivo_id = d.id
-      JOIN zona             z  ON d.zona_id        = z.id
-      JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
+      LEFT JOIN zona        z  ON d.zona_id        = z.id
+      LEFT JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
       INNER JOIN (
         SELECT tipo_dato_id, MAX(created_at) AS max_fecha
         FROM lecturas
@@ -219,11 +344,11 @@ router.get("/ultimas", async (req, res) => {
   }
 });
 
-// GET /api/lecturas/promedio -> promedio de las últimas lecturas de todos los dispositivos
+// GET /api/lecturas/promedio -> promedio de lecturas recientes por tipo de dato
 router.get("/promedio", async (req, res) => {
   const { proposito_id } = req.query;
 
-  const condiciones = ["td.nombre IN ('Temperatura', 'Humedad', 'VPD')"];
+  const condiciones = ["l.created_at >= NOW() - INTERVAL 30 MINUTE"];
   const valores = [];
 
   if (proposito_id) {
@@ -236,21 +361,16 @@ router.get("/promedio", async (req, res) => {
     const [rows] = await pool.query(
       `
       SELECT 
+        td.id AS tipo_dato_id,
         td.nombre AS tipo_dato,
         td.unidad,
-        ROUND(AVG(l.dato), 2) AS promedio
+        ROUND(AVG(l.dato), 2) AS promedio,
+        COUNT(*) AS cantidad_lecturas
       FROM lecturas l
       JOIN tipo_dato td ON l.tipo_dato_id = td.id
       JOIN dispositivo d ON l.dispositivo_id = d.id
-      INNER JOIN (
-        SELECT dispositivo_id, tipo_dato_id, MAX(created_at) AS max_fecha
-        FROM lecturas
-        GROUP BY dispositivo_id, tipo_dato_id
-      ) ult ON ult.dispositivo_id = l.dispositivo_id 
-            AND ult.tipo_dato_id = l.tipo_dato_id
-            AND ult.max_fecha = l.created_at
       ${where}
-      GROUP BY l.tipo_dato_id, td.nombre, td.unidad
+      GROUP BY td.id, td.nombre, td.unidad
     `,
       valores,
     );
@@ -262,9 +382,26 @@ router.get("/promedio", async (req, res) => {
   }
 });
 
-// POST /api/lecturas -> recibe el payload del ESP32
+// POST /api/lecturas -> recibe el payload del gateway después de ESP-NOW.
+// La batería es opcional. El intervalo real se calcula en el backend con
+// las dos últimas lecturas del mismo dispositivo; ya no se confía en un
+// intervalo enviado por el nodo.
+// { dispositivo_id, bateria_porcentaje, lecturas: [...] }
 router.post("/", async (req, res) => {
-  const { dispositivo_id, lecturas } = req.body;
+  const { dispositivo_id, lecturas, bateria_porcentaje } = req.body;
+
+  if (
+    bateria_porcentaje !== undefined &&
+    bateria_porcentaje !== null &&
+    bateria_porcentaje !== ""
+  ) {
+    const bateria = Number(bateria_porcentaje);
+    if (!Number.isFinite(bateria) || bateria < 0 || bateria > 100) {
+      return res.status(400).json({
+        error: "bateria_porcentaje debe estar entre 0 y 100",
+      });
+    }
+  }
 
   if (
     !dispositivo_id ||
@@ -277,6 +414,25 @@ router.post("/", async (req, res) => {
       .json({ error: "dispositivo_id y lecturas son requeridos" });
   }
 
+  if (lecturas.length > 1000) {
+    return res.status(400).json({
+      error: "No se pueden registrar más de 1000 lecturas por solicitud",
+    });
+  }
+
+  const lecturaInvalida = lecturas.find(
+    (lectura) =>
+      !lectura ||
+      !isFiniteNumber(lectura.dato) ||
+      parsePositiveInteger(lectura.tipo_dato_id, null) === null,
+  );
+
+  if (lecturaInvalida) {
+    return res.status(400).json({
+      error: "Cada lectura debe incluir dato numérico y tipo_dato_id válido",
+    });
+  }
+
   const connection = await pool.getConnection();
 
   try {
@@ -284,7 +440,8 @@ router.post("/", async (req, res) => {
 
     // Verifica que el dispositivo exista
     const [dispositivo] = await connection.query(
-      "SELECT id FROM dispositivo WHERE id = ?",
+      `SELECT id, tipo_alimentacion, intervalo_lectura_segundos, bateria_porcentaje
+       FROM dispositivo WHERE id = ?`,
       [dispositivo_id],
     );
     if (dispositivo.length === 0) {
@@ -312,15 +469,45 @@ router.post("/", async (req, res) => {
     }
 
     // Inserta todas las lecturas en una sola consulta
+    const bateriaActualizada = dispositivo[0].tipo_alimentacion === "CORRIENTE_DIRECTA"
+      ? null
+      : bateria_porcentaje === undefined
+        ? dispositivo[0].bateria_porcentaje
+        : bateria_porcentaje === ""
+          ? null
+          : bateria_porcentaje;
+    const bateriaRecibida = dispositivo[0].tipo_alimentacion === "BATERIA" && bateria_porcentaje !== undefined;
+
     const valores = lecturas.map((l) => [
       l.dato,
       dispositivo_id,
       l.tipo_dato_id,
+      bateriaActualizada,
       new Date(),
     ]);
     await connection.query(
-      "INSERT INTO lecturas (dato, dispositivo_id, tipo_dato_id, created_at) VALUES ?",
+      `INSERT INTO lecturas
+       (dato, dispositivo_id, tipo_dato_id, bateria_porcentaje, created_at)
+       VALUES ?`,
       [valores],
+    );
+
+    await connection.query(
+      `UPDATE dispositivo
+       SET bateria_porcentaje = ?,
+           bateria_actualizada_at = CASE
+             WHEN ? = 0 THEN bateria_actualizada_at
+             WHEN ? IS NULL THEN NULL
+             ELSE NOW()
+           END,
+           ultima_comunicacion = NOW()
+       WHERE id = ?`,
+      [
+        bateriaActualizada,
+        bateriaRecibida ? 1 : 0,
+        bateriaActualizada,
+        dispositivo_id,
+      ],
     );
 
     await connection.commit();
@@ -338,7 +525,7 @@ router.post("/", async (req, res) => {
 });
 
 // PATCH /api/lecturas/:id -> corregir un dato o tipo_dato_id de una lectura
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", verificarToken, async (req, res) => {
   const { id } = req.params;
   const { dato, tipo_dato_id } = req.body;
 
@@ -363,6 +550,11 @@ router.patch("/:id", async (req, res) => {
       }
       campos.push("tipo_dato_id = ?");
       valores.push(tipo_dato_id);
+    }
+
+    if (dato !== undefined && !isFiniteNumber(dato)) {
+      await connection.rollback();
+      return res.status(400).json({ error: "dato debe ser un número válido" });
     }
 
     if (dato !== undefined) {
@@ -401,7 +593,7 @@ router.patch("/:id", async (req, res) => {
 });
 
 // DELETE /api/lecturas/:id -> eliminar una lectura
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", verificarToken, async (req, res) => {
   const { id } = req.params;
 
   try {
