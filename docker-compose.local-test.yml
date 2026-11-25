@@ -1,0 +1,30 @@
+services:
+  db:
+    container_name: invernadero_cima_audit_db
+    ports: !override
+      - "3312:3306"
+
+  backend:
+    container_name: invernadero_cima_audit_backend
+    environment:
+      CORS_ORIGINS: http://localhost:3012
+      RUN_SEED: "true"
+    volumes: !override
+      - uploads_data:/app/uploads
+    ports: !override
+      - "4012:4000"
+
+  frontend:
+    container_name: invernadero_cima_audit_frontend
+    build:
+      args:
+        REACT_APP_API_URL: http://localhost:4012
+        REACT_APP_LOCAL_TEST_MODE: "false"
+    ports: !override
+      - "3012:80"
+
+volumes:
+  db_data:
+    name: invernadero_cima_audit_db_data
+  uploads_data:
+    name: invernadero_cima_audit_uploads
