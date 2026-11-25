@@ -3,11 +3,14 @@ import { pool } from "../db.js";
 import ExcelJS from "exceljs";
 
 import { verificarToken } from "../middleware/auth.js";
+import { verificarGateway } from "../middleware/gatewayAuth.js";
 import {
   isFiniteNumber,
   isIsoDateOrDateTime,
   parsePositiveInteger,
 } from "../utils/validation.js";
+import { calculateGatewayAssignmentRevision } from "../utils/gatewayRevisions.js";
+import { validateSensorMeasurement } from "../utils/sensorMeasurementValidation.js";
 
 const router = Router();
 
@@ -406,26 +409,26 @@ router.get("/ultimas", async (req, res) => {
   try {
     const [rows] = await pool.query(
       `
-      SELECT l.id, l.dato, l.created_at,
-             td.nombre AS tipo_dato, td.unidad,
-             d.nombre AS dispositivo,
+      WITH lecturas_ordenadas AS (
+        SELECT l.id, l.dato, l.created_at, l.captured_at, l.sensor_id, l.tipo_dato_id, l.dispositivo_id,
+          ROW_NUMBER() OVER (PARTITION BY l.dispositivo_id, l.sensor_id, l.tipo_dato_id
+            ORDER BY COALESCE(l.captured_at,l.created_at) DESC, l.created_at DESC, l.id DESC) AS orden
+        FROM lecturas l WHERE l.dispositivo_id=?
+      )
+      SELECT l.id, l.dato, l.created_at AS received_at, l.captured_at, l.sensor_id,
+             s.nombre AS sensor, td.nombre AS tipo_dato, td.unidad,
+             d.id AS dispositivo_id, d.nombre AS dispositivo,
              z.zona AS zona,
              t.nombre AS tipo_dispositivo
-      FROM lecturas l
+      FROM lecturas_ordenadas l
       JOIN tipo_dato        td ON l.tipo_dato_id   = td.id
       JOIN dispositivo      d  ON l.dispositivo_id = d.id
+      LEFT JOIN sensor s ON s.id=l.sensor_id
       LEFT JOIN zona        z  ON d.zona_id        = z.id
       LEFT JOIN tipo_dispositivo t  ON d.tipo_id        = t.id
-      INNER JOIN (
-        SELECT tipo_dato_id, MAX(created_at) AS max_fecha
-        FROM lecturas
-        WHERE dispositivo_id = ?
-        GROUP BY tipo_dato_id
-      ) ult ON ult.tipo_dato_id = l.tipo_dato_id 
-            AND ult.max_fecha   = l.created_at
-      WHERE l.dispositivo_id = ?
+      WHERE l.orden=1
       `,
-      [dispositivo_id, dispositivo_id],
+      [dispositivo_id],
     );
 
     res.json({ datos: rows });
@@ -439,7 +442,7 @@ router.get("/ultimas", async (req, res) => {
 router.get("/promedio", async (req, res) => {
   const { proposito_id, ubicacion_id } = req.query;
 
-  const condiciones = ["l.created_at >= NOW() - INTERVAL 60 MINUTE"];
+  const condiciones = ["COALESCE(l.captured_at,l.created_at) >= NOW() - INTERVAL 60 MINUTE", "COALESCE(l.captured_at,l.created_at) <= NOW()"];
   const valores = [];
 
   if (proposito_id) {
@@ -476,7 +479,27 @@ router.get("/promedio", async (req, res) => {
       valores,
     );
 
-    res.json({ datos: rows });
+    const [porSensor] = await pool.query(`
+      SELECT d.id AS dispositivo_id, d.nombre AS dispositivo, l.sensor_id,
+        s.nombre AS sensor, td.id AS tipo_dato_id, td.nombre AS tipo_dato, td.unidad,
+        ROUND(AVG(l.dato),2) AS promedio, COUNT(*) AS cantidad_lecturas,
+        CASE WHEN l.sensor_id IS NULL THEN 'LEGACY_SIN_SENSOR_ASOCIADO' ELSE 'SENSOR_FISICO' END AS granularidad
+      FROM lecturas l
+      JOIN tipo_dato td ON td.id=l.tipo_dato_id
+      JOIN dispositivo d ON d.id=l.dispositivo_id
+      LEFT JOIN sensor s ON s.id=l.sensor_id
+      LEFT JOIN zona z ON z.id=d.zona_id
+      ${where}
+      GROUP BY d.id,d.nombre,l.sensor_id,s.nombre,td.id,td.nombre,td.unidad
+      ORDER BY d.id,l.sensor_id,td.id`, valores);
+
+    res.json({
+      schema_version: 2,
+      periodo: { segundos: 3600, scope: "timestamp de captura; usa created_at de recepción si captured_at es NULL (muestras UNSYNCED y legado)" },
+      global: { scope: "promedio global por tipo_dato en todos los nodos/sensores filtrados", datos: rows },
+      por_sensor: { scope: "promedio por nodo + sensor físico + tipo_dato; las lecturas históricas sensor_id NULL quedan identificadas como legacy", datos: porSensor },
+      datos: rows,
+    });
   } catch (error) {
     console.error("Error al consultar promedios:", error.message);
     res.status(500).json({ error: "Error al consultar los promedios" });
@@ -488,8 +511,8 @@ router.get("/promedio", async (req, res) => {
 // se calcula en el backend con lecturas consecutivas válidas; los huecos
 // largos de comunicación se excluyen del cálculo.
 // { dispositivo_id, bateria_porcentaje, intervalo_lectura_segundos, lecturas: [...] }
-router.post("/", async (req, res) => {
-  const { dispositivo_id, lecturas, bateria_porcentaje, intervalo_lectura_segundos: intervaloRecibido } = req.body;
+router.post("/", verificarGateway, async (req, res) => {
+  const { dispositivo_id, firmware_node_id, boot_id, seq, sample_uptime_ms, captured_at, time_quality = "UNSYNCED", manifest_revision, assignment_revision, lecturas, bateria_porcentaje, intervalo_lectura_segundos: intervaloRecibido } = req.body;
 
   if (
     bateria_porcentaje !== undefined &&
@@ -504,6 +527,18 @@ router.post("/", async (req, res) => {
     }
   }
 
+  if (!Number.isInteger(Number(firmware_node_id)) || Number(firmware_node_id) < 1 || Number(firmware_node_id) > 4294967295 ||
+      typeof boot_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(boot_id) ||
+      !Number.isInteger(Number(seq)) || Number(seq) < 0 || Number(seq) > 4294967295 ||
+      !Number.isSafeInteger(Number(sample_uptime_ms)) || Number(sample_uptime_ms) < 0 ||
+      typeof manifest_revision !== "string" || !/^[0-9a-f]{64}$/i.test(manifest_revision) ||
+      typeof assignment_revision !== "string" || !/^[0-9a-f]{64}$/i.test(assignment_revision) ||
+      !["SYNCED", "UNSYNCED"].includes(time_quality) ||
+      (time_quality === "SYNCED" && !captured_at) ||
+      (captured_at !== undefined && (typeof captured_at !== "string" || !Number.isFinite(Date.parse(captured_at))))) {
+    return res.status(400).json({ error: "firmware_node_id, boot_id, seq, manifest_revision, assignment_revision y captured_at deben identificar la muestra" });
+  }
+
   if (intervaloRecibido !== undefined && intervaloRecibido !== null && intervaloRecibido !== "") {
     const intervalo = Number(intervaloRecibido);
     if (!Number.isInteger(intervalo) || intervalo < 5 || intervalo > 86400) {
@@ -514,7 +549,7 @@ router.post("/", async (req, res) => {
   }
 
   if (
-    !dispositivo_id ||
+    !Number.isInteger(Number(dispositivo_id)) || Number(dispositivo_id) < 1 ||
     !lecturas ||
     !Array.isArray(lecturas) ||
     lecturas.length === 0
@@ -547,11 +582,12 @@ router.post("/", async (req, res) => {
 
   try {
     await connection.beginTransaction();
+    await connection.query("SELECT id FROM gateway WHERE id=? AND activo=1 FOR UPDATE", [req.gateway.id]);
 
     // Verifica que el dispositivo exista
     const [dispositivo] = await connection.query(
-      `SELECT id, tipo_alimentacion, intervalo_lectura_segundos, bateria_porcentaje
-       FROM dispositivo WHERE id = ?`,
+      `SELECT id, estado, tipo_alimentacion, intervalo_lectura_segundos, bateria_porcentaje
+       FROM dispositivo WHERE id = ? FOR UPDATE`,
       [dispositivo_id],
     );
     if (dispositivo.length === 0) {
@@ -560,6 +596,20 @@ router.post("/", async (req, res) => {
         .status(404)
         .json({ error: `Dispositivo ${dispositivo_id} no encontrado` });
     }
+
+    if (dispositivo[0].estado !== "OPERATIVO") {
+      await connection.rollback();
+      return res.status(409).json({ error: "El nodo no está en estado administrativo OPERATIVO; no se aceptan lecturas productivas" });
+    }
+    const [assignment] = await connection.query(`SELECT id FROM gateway_node_assignment
+      WHERE gateway_id=? AND dispositivo_id=? AND firmware_node_id=? AND activo=1`,
+    [req.gateway.id, Number(dispositivo_id), Number(firmware_node_id)]);
+    if (!assignment.length) {
+      await connection.rollback();
+      return res.status(403).json({ error: "El nodo/ID de firmware no está asignado a este gateway" });
+    }
+    const currentAssignmentRevision = await calculateGatewayAssignmentRevision(connection, req.gateway.id);
+    const assignmentIsCurrent = assignment_revision.toLowerCase() === currentAssignmentRevision;
 
     // Verifica que todos los tipo_dato_id existan
     const tiposDatoIds = [...new Set(lecturas.map((l) => l.tipo_dato_id))];
@@ -578,7 +628,63 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Inserta todas las lecturas en una sola consulta
+    const [sensors] = await connection.query(`SELECT s.id, s.estado, ns.sensor_firmware_id, ns.canal, s.tipo_dispositivo_id
+      FROM nodo_sensor ns JOIN sensor s ON s.id=ns.sensor_id
+      WHERE ns.dispositivo_id=? AND ns.activo=1`, [dispositivo_id]);
+    const prepared = [];
+    const itemResults = [];
+    const batchKeys = new Set();
+    for (const reading of lecturas) {
+      if (!assignmentIsCurrent) {
+        itemResults.push({ sensor_id: reading.sensor_id ? Number(reading.sensor_id) : null, tipo_dato_id: reading.tipo_dato_id, status: "rejected", reason: "stale_assignment_revision", action: "quarantine_resync_manifest_no_retry" });
+        continue;
+      }
+      if (!reading.sensor_id) {
+        itemResults.push({ sensor_id: null, tipo_dato_id: reading.tipo_dato_id, status: "rejected", reason: "sensor_id_required", action: "resync_manifest_no_retry" });
+        continue;
+      }
+      const sensor = sensors.find((candidate) => Number(candidate.id) === Number(reading.sensor_id));
+      if (!sensor) { itemResults.push({ sensor_id: Number(reading.sensor_id), tipo_dato_id: reading.tipo_dato_id, status: "rejected", reason: "sensor_not_assigned", action: "resync_manifest_no_retry" }); continue; }
+      if (typeof reading.sensor_firmware_id !== "string" || reading.sensor_firmware_id !== sensor.sensor_firmware_id || typeof reading.canal !== "string" || reading.canal !== sensor.canal) {
+        itemResults.push({ sensor_id: Number(sensor.id), tipo_dato_id: reading.tipo_dato_id, status: "rejected", reason: "stale_or_unknown_sensor_mapping", action: "quarantine_resync_manifest_no_retry" });
+        continue;
+      }
+      if (sensor.estado !== "OPERATIVO" && sensor.estado !== "ACTIVO") {
+        itemResults.push({ sensor_id: Number(sensor.id), tipo_dato_id: reading.tipo_dato_id, status: "rejected", reason: sensor.estado === "EN MANTENIMIENTO" ? "maintenance_local_only" : `sensor_${sensor.estado.toLowerCase()}`, action: "keep_local_no_retry" });
+        continue;
+      }
+      const [compatible] = await connection.query(`SELECT td.id AS tipo_dato_id, td.unidad,
+        c.installation_min, c.installation_max, c.manufacturer_min, c.manufacturer_max,
+        COALESCE(c.calibration_status,'NOT_RECORDED') AS calibration_status
+        FROM tipo_dispositivo_tipo_dato m JOIN tipo_dato td ON td.id=m.tipo_dato_id
+        LEFT JOIN sensor_measurement_config c ON c.sensor_id=? AND c.tipo_dato_id=td.id
+        WHERE m.tipo_dispositivo_id=? AND td.id=? LIMIT 1`, [sensor.id, sensor.tipo_dispositivo_id, reading.tipo_dato_id]);
+      if (!compatible.length) { itemResults.push({ sensor_id: Number(sensor.id), tipo_dato_id: reading.tipo_dato_id, status: "rejected", reason: "type_not_supported", action: "resync_manifest_no_retry", received_value: Number(reading.dato) }); continue; }
+      const measurementValidation = validateSensorMeasurement(reading.dato, reading.unidad, compatible[0]);
+      if (!measurementValidation.valid) {
+        itemResults.push({ sensor_id: Number(sensor.id), tipo_dato_id: reading.tipo_dato_id, status: "rejected",
+          reason: measurementValidation.reason, action: "quarantine_inspect_sensor_or_mapping",
+          received_value: Number(reading.dato), received_unit: reading.unidad ?? null,
+          validation_details: { expected_unit: compatible[0].unidad, bounds: measurementValidation.bounds || null,
+            calibration_status: compatible[0].calibration_status } });
+        continue;
+      }
+      const batchKey = `${sensor.id}:${reading.tipo_dato_id}`;
+      if (batchKeys.has(batchKey)) { itemResults.push({ sensor_id: Number(sensor.id), tipo_dato_id: reading.tipo_dato_id, status: "duplicate" }); continue; }
+      batchKeys.add(batchKey);
+      const [duplicate] = await connection.query(`SELECT lectura_id FROM gateway_telemetry_dedupe
+        WHERE gateway_id=? AND firmware_node_id=? AND boot_id=? AND seq=? AND sensor_id=? AND tipo_dato_id=?`,
+      [req.gateway.id, Number(firmware_node_id), boot_id, Number(seq), Number(sensor.id), Number(reading.tipo_dato_id)]);
+      if (duplicate.length) itemResults.push({ sensor_id: Number(sensor.id), tipo_dato_id: reading.tipo_dato_id, status: "duplicate", lectura_id: duplicate[0].lectura_id });
+      else {
+        prepared.push({ ...reading, sensor_id: sensor.id, manifest_revision, assignment_revision });
+        itemResults.push({ sensor_id: Number(sensor.id), tipo_dato_id: reading.tipo_dato_id, status: "accepted",
+          unidad: measurementValidation.unit, unit_assumed: measurementValidation.unit_assumed,
+          calibration_status: measurementValidation.calibration_status });
+      }
+    }
+
+    // Store each accepted sensor sample with its physical sensor identity.
     const bateriaActualizada = dispositivo[0].tipo_alimentacion === "CORRIENTE_DIRECTA"
       ? null
       : bateria_porcentaje === undefined
@@ -591,19 +697,25 @@ router.post("/", async (req, res) => {
       ? null
       : Number(intervaloRecibido);
 
-    const valores = lecturas.map((l) => [
-      l.dato,
-      dispositivo_id,
-      l.tipo_dato_id,
-      bateriaActualizada,
-      new Date(),
-    ]);
-    await connection.query(
-      `INSERT INTO lecturas
-       (dato, dispositivo_id, tipo_dato_id, bateria_porcentaje, created_at)
-       VALUES ?`,
-      [valores],
-    );
+    for (const reading of prepared) {
+      const [result] = await connection.query(`INSERT INTO lecturas
+        (dato, dispositivo_id, tipo_dato_id, sensor_id, bateria_porcentaje, created_at, captured_at, sample_uptime_ms)
+        VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)` ,
+        [reading.dato, dispositivo_id, reading.tipo_dato_id, reading.sensor_id, bateriaActualizada, time_quality === "SYNCED" && captured_at ? new Date(captured_at) : null, Number(sample_uptime_ms)]);
+      await connection.query(`INSERT INTO gateway_telemetry_dedupe
+        (gateway_id, firmware_node_id, boot_id, seq, sensor_id, tipo_dato_id, manifest_revision, assignment_revision, lectura_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [req.gateway.id, Number(firmware_node_id), boot_id, Number(seq), reading.sensor_id, reading.tipo_dato_id, reading.manifest_revision, reading.assignment_revision, result.insertId]);
+    }
+    for (const rejected of itemResults.filter((item) => item.status === "rejected")) {
+      const original = lecturas.find((reading) => Number(reading.sensor_id || 0) === Number(rejected.sensor_id || 0) && Number(reading.tipo_dato_id) === Number(rejected.tipo_dato_id));
+      await connection.query(`INSERT INTO gateway_telemetry_rejection
+        (gateway_id,dispositivo_id,firmware_node_id,boot_id,seq,sensor_id,sensor_firmware_id,canal,tipo_dato_id,received_value,received_unit,validation_details,reason,manifest_revision,assignment_revision)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [req.gateway.id, Number(dispositivo_id), Number(firmware_node_id), boot_id, Number(seq),
+        rejected.sensor_id || null, original?.sensor_firmware_id || null, original?.canal || null,
+        rejected.tipo_dato_id || null, original?.dato === undefined ? rejected.received_value ?? null : Number(original.dato),
+        original?.unidad ?? rejected.received_unit ?? null, rejected.validation_details ? JSON.stringify(rejected.validation_details) : null,
+        rejected.reason, manifest_revision, assignment_revision]);
+    }
 
     await connection.query(
       `UPDATE dispositivo
@@ -613,8 +725,7 @@ router.post("/", async (req, res) => {
              WHEN ? = 0 THEN bateria_actualizada_at
              WHEN ? IS NULL THEN NULL
              ELSE NOW()
-           END,
-           ultima_comunicacion = NOW()
+           END
        WHERE id = ?`,
       [
         intervaloActualizado,
@@ -626,8 +737,14 @@ router.post("/", async (req, res) => {
     );
 
     await connection.commit();
-    res.status(201).json({
-      message: `${lecturas.length} lecturas registradas correctamente`,
+    res.status(prepared.length ? 201 : 200).json({
+      schema_version: 1,
+      accepted: true,
+      message: `${prepared.length} lecturas productivas registradas; heartbeat se informa por endpoint separado`,
+      duplicate_count: itemResults.filter((item) => item.status === "duplicate").length,
+      time_quality,
+      gateway_received_at: new Date().toISOString(),
+      items: itemResults,
       dispositivo_id,
     });
   } catch (error) {

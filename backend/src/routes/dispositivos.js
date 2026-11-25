@@ -3,6 +3,7 @@ import { pool } from "../db.js";
 
 import { verificarToken } from "../middleware/auth.js";
 import { DIMENSIONES_SITIO } from "../config/sitio.js";
+import { parseHeartbeatGraceSeconds } from "../utils/heartbeat.js";
 
 const estadosValidos = [
   "OPERATIVO",
@@ -37,6 +38,10 @@ function normalizarMacAddress(valor) {
   const limpia = String(valor).trim().replace(/[:-]/g, "").toUpperCase();
   if (!/^[0-9A-F]{12}$/.test(limpia)) return undefined;
   return limpia.match(/.{2}/g).join(":");
+}
+
+function estadoComponenteValido(estado, categoria) {
+  return estadosValidos.includes(estado) || (categoria === "SENSOR" && estado === "RETIRADO");
 }
 
 async function buscarZonaPorUbicacion(connection, ubicacion) {
@@ -92,7 +97,7 @@ router.get("/actuadores", async (req, res) => {
       SELECT a.id, a.nombre, a.estado, a.encendido, a.control_automatico_activo, t.nombre AS tipo_dispositivo,
              d.id AS nodo_id, d.nombre AS nodo, z.zona,
              d.tipo_alimentacion, d.intervalo_lectura_segundos,
-             d.bateria_porcentaje, d.ultima_comunicacion
+             d.bateria_porcentaje, d.ultimo_heartbeat_at AS ultima_comunicacion
       FROM actuador a
       JOIN dispositivo d ON d.id = a.dispositivo_id
       LEFT JOIN tipo_dispositivo t ON t.id = a.tipo_dispositivo_id
@@ -255,7 +260,6 @@ router.put("/nodos/:nodoId/actuadores/:actuadorId/reglas", verificarToken, async
 router.post("/nodos/:id/componentes", verificarToken, async (req, res) => {
   const { tipo_id, estado = "OPERATIVO" } = req.body;
   if (!Number.isInteger(Number(tipo_id)) || Number(tipo_id) < 1) return res.status(400).json({ error: "Selecciona un tipo de componente válido" });
-  if (!estadosValidos.includes(estado)) return res.status(400).json({ error: "Elige Operativo, Inactivo o En mantenimiento; Problemas o fallas es automático" });
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -263,6 +267,7 @@ router.post("/nodos/:id/componentes", verificarToken, async (req, res) => {
     if (!nodo.length) { await connection.rollback(); return res.status(404).json({ error: "Nodo no encontrado" }); }
     const [tipo] = await connection.query("SELECT id, nombre, categoria FROM tipo_dispositivo WHERE id = ?", [tipo_id]);
     if (!tipo.length) { await connection.rollback(); return res.status(404).json({ error: "Tipo de componente no encontrado" }); }
+    if (!estadoComponenteValido(estado, tipo[0].categoria)) { await connection.rollback(); return res.status(400).json({ error: "Estado de componente no válido; Fallando es automático y Retirado conserva el historial del sensor" }); }
     const tabla = tipo[0].categoria === "ACTUADOR" ? "actuador" : "sensor";
     const [result] = await connection.query(
       `INSERT INTO ${tabla} (dispositivo_id, tipo_dispositivo_id, nombre, estado) VALUES (?, ?, ?, ?)`,
@@ -286,24 +291,19 @@ router.patch("/nodos/:nodoId/componentes/:categoria/:id", verificarToken, async 
   if (encendido !== undefined && (componente.categoria !== "ACTUADOR" || typeof encendido !== "boolean")) return res.status(400).json({ error: "El control de encendido solo acepta true o false para actuadores" });
   if (controlAutomaticoActivo !== undefined && (componente.categoria !== "ACTUADOR" || typeof controlAutomaticoActivo !== "boolean")) return res.status(400).json({ error: "El control automático solo acepta true o false para actuadores" });
   if (tipo_id !== undefined && (!Number.isInteger(Number(tipo_id)) || Number(tipo_id) < 1)) return res.status(400).json({ error: "Selecciona un tipo válido" });
-  if (estado !== undefined && !estadosValidos.includes(estado)) return res.status(400).json({ error: "Elige Operativo, Inactivo o En mantenimiento; Problemas o fallas es automático" });
+  if (estado !== undefined && !estadoComponenteValido(estado, componente.categoria)) return res.status(400).json({ error: "Estado de componente no válido; Fallando es automático y Retirado solo aplica a sensores" });
   if (estado === undefined && tipo_id === undefined && encendido === undefined && controlAutomaticoActivo === undefined) return res.status(400).json({ error: "Indica qué dato deseas actualizar" });
   try {
     if (controlAutomaticoActivo === true) {
       const [nodo] = await pool.query(`
-        SELECT d.estado,
-               COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) AS ultima_comunicacion
+        SELECT d.estado, d.ultimo_heartbeat_at AS ultima_comunicacion, d.management_poll_interval_seconds
         FROM dispositivo d
-        LEFT JOIN (
-          SELECT dispositivo_id, MAX(created_at) AS ultima_lectura_at
-          FROM lecturas
-          GROUP BY dispositivo_id
-        ) ultima_lectura ON ultima_lectura.dispositivo_id = d.id
         WHERE d.id = ?
       `, [req.params.nodoId]);
       if (!nodo.length) return res.status(404).json({ error: "Nodo no encontrado" });
       const ultimaComunicacion = nodo[0].ultima_comunicacion ? new Date(nodo[0].ultima_comunicacion).getTime() : NaN;
-      const sinComunicacion = !Number.isFinite(ultimaComunicacion) || ultimaComunicacion < Date.now() - (60 * 60 * 1000);
+      const intervalo = Math.max(60, Number(nodo[0].management_poll_interval_seconds) || 600);
+      const sinComunicacion = !Number.isFinite(ultimaComunicacion) || ultimaComunicacion < Date.now() - ((intervalo + HEARTBEAT_GRACE_SECONDS) * 1000);
       if (nodo[0].estado !== "OPERATIVO" || sinComunicacion) {
         return res.status(409).json({ error: "No se puede activar la tarea: el nodo tiene problemas o no se ha comunicado durante la última hora" });
       }
@@ -368,6 +368,8 @@ router.patch("/nodos/:nodoId/componentes/:categoria/:id", verificarToken, async 
       );
       tareasPausadas = pausa.affectedRows;
     }
+    if (estado !== undefined || tipo_id !== undefined) {
+    }
     res.json({ message: "Componente actualizado", tareas_pausadas: tareasPausadas });
   } catch (error) {
     console.error("Error al actualizar componente:", error.message);
@@ -380,13 +382,12 @@ router.delete("/nodos/:nodoId/componentes/:categoria/:id", verificarToken, async
   if (!componente) return res.status(400).json({ error: "La categoría debe ser sensor o actuador" });
   try {
     if (componente.tabla === "sensor") {
-      const [reglas] = await pool.query(
-        "SELECT COUNT(*) AS total FROM actuador_regla WHERE sensor_id = ?",
-        [req.params.id],
-      );
-      if (Number(reglas[0].total) > 0) {
-        return res.status(409).json({ error: "Este sensor está asociado a reglas de actuadores. Quita o reemplaza esas reglas antes de eliminarlo" });
-      }
+      const [result] = await pool.query(`UPDATE sensor SET estado='RETIRADO'
+        WHERE id=? AND dispositivo_id=?`, [req.params.id, req.params.nodoId]);
+      if (!result.affectedRows) return res.status(404).json({ error: "Sensor no encontrado en este nodo" });
+      await pool.query(`UPDATE nodo_sensor SET activo=0, retirado_en=NOW()
+        WHERE sensor_id=? AND dispositivo_id=? AND activo=1`, [req.params.id, req.params.nodoId]);
+      return res.json({ message: "Sensor retirado; sus lecturas e historial se conservan" });
     }
     const [result] = await pool.query(
       `DELETE FROM ${componente.tabla} WHERE id = ? AND dispositivo_id = ?`,
@@ -400,9 +401,10 @@ router.delete("/nodos/:nodoId/componentes/:categoria/:id", verificarToken, async
   }
 });
 
+// FALLANDO es una proyección de salud de comunicación sobre el estado administrativo.
+const HEARTBEAT_GRACE_SECONDS = parseHeartbeatGraceSeconds(process.env.HEARTBEAT_GRACE_SECONDS);
+
 // GET /api/dispositivos -> dispositivos con sus especificaciones, zona y tipo.
-// Un intervalo que supera tres ciclos configurados se interpreta como una
-// interrupción de comunicación y no se reutiliza como intervalo normal.
 router.get("/", async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -410,22 +412,29 @@ router.get("/", async (req, res) => {
     d.id,
     CASE
       WHEN d.estado IN ('INACTIVO', 'EN MANTENIMIENTO') THEN d.estado
-      WHEN d.estado = 'FALLANDO' THEN d.estado
-      WHEN COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) IS NULL
-        OR COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+      WHEN COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) IS NULL
+        OR COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) < DATE_SUB(NOW(), INTERVAL (COALESCE(d.management_poll_interval_seconds, 600) + ${HEARTBEAT_GRACE_SECONDS}) SECOND)
         THEN 'FALLANDO'
-      ELSE d.estado
+      ELSE 'OPERATIVO'
     END AS estado,
+    d.estado AS estado_administrativo,
+    IF(d.ultimo_heartbeat_at IS NULL AND d.ultima_comunicacion IS NOT NULL, 'LEGACY_TELEMETRY_COMPAT', 'HEARTBEAT') AS estado_comunicacion_fuente,
+    CASE
+      WHEN COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) IS NULL THEN 'SIN_COMUNICACION'
+      WHEN COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) < DATE_SUB(NOW(), INTERVAL (COALESCE(d.management_poll_interval_seconds, 600) + ${HEARTBEAT_GRACE_SECONDS}) SECOND) THEN 'ATRASADO'
+      ELSE 'RECIBIENDO'
+    END AS estado_comunicacion,
     d.nombre,
     d.descripcion AS descripcion_nodo,
     d.tipo_alimentacion,
     d.bateria_quimica,
     d.bateria_capacidad_mah,
     d.intervalo_lectura_segundos,
+    ${HEARTBEAT_GRACE_SECONDS} AS heartbeat_grace_seconds,
     intervalo.intervalo_calculado_segundos,
     d.bateria_porcentaje,
     d.bateria_actualizada_at,
-    COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) AS ultima_comunicacion,
+    COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) AS ultima_comunicacion,
     d.created_at,
     d.specs_id,
     d.zona_id,
@@ -503,22 +512,29 @@ router.get("/:id", async (req, res) => {
         d.id,
         CASE
           WHEN d.estado IN ('INACTIVO', 'EN MANTENIMIENTO') THEN d.estado
-          WHEN d.estado = 'FALLANDO' THEN d.estado
-          WHEN COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) IS NULL
-            OR COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+          WHEN COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) IS NULL
+            OR COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) < DATE_SUB(NOW(), INTERVAL (COALESCE(d.management_poll_interval_seconds, 600) + ${HEARTBEAT_GRACE_SECONDS}) SECOND)
             THEN 'FALLANDO'
-          ELSE d.estado
+          ELSE 'OPERATIVO'
         END AS estado,
+        d.estado AS estado_administrativo,
+        IF(d.ultimo_heartbeat_at IS NULL AND d.ultima_comunicacion IS NOT NULL, 'LEGACY_TELEMETRY_COMPAT', 'HEARTBEAT') AS estado_comunicacion_fuente,
+        CASE
+          WHEN COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) IS NULL THEN 'SIN_COMUNICACION'
+          WHEN COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) < DATE_SUB(NOW(), INTERVAL (COALESCE(d.management_poll_interval_seconds, 600) + ${HEARTBEAT_GRACE_SECONDS}) SECOND) THEN 'ATRASADO'
+          ELSE 'RECIBIENDO'
+        END AS estado_comunicacion,
         d.nombre,
         d.descripcion AS descripcion_nodo,
         d.tipo_alimentacion,
         d.bateria_quimica,
         d.bateria_capacidad_mah,
         d.intervalo_lectura_segundos,
+        ${HEARTBEAT_GRACE_SECONDS} AS heartbeat_grace_seconds,
         intervalo.intervalo_calculado_segundos,
         d.bateria_porcentaje,
         d.bateria_actualizada_at,
-        COALESCE(GREATEST(d.ultima_comunicacion, ultima_lectura.ultima_lectura_at), d.ultima_comunicacion, ultima_lectura.ultima_lectura_at) AS ultima_comunicacion,
+        COALESCE(d.ultimo_heartbeat_at, d.ultima_comunicacion) AS ultima_comunicacion,
         d.created_at,
         d.specs_id,
         d.image_path AS image_path_nodo,
