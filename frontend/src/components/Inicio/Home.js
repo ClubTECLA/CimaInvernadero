@@ -18,6 +18,12 @@ import {
   mostrarPorcentajeBateria,
 } from "../../utils/dispositivoFormatters";
 
+function cantidadMuestrasTexto(cantidad) {
+  const total = Number(cantidad);
+  if (!Number.isFinite(total)) return "Cantidad de muestras no disponible";
+  return `${total.toLocaleString("es-MX")} ${total === 1 ? "muestra" : "muestras"} · últimos 60 min`;
+}
+
 function Home() {
   const { dimensions: dimensionesSitio } = useSiteDimensions();
   const {
@@ -275,6 +281,7 @@ function Home() {
             <div>
               <span>PROMEDIOS DE LA UBICACIÓN</span>
               <h2>Últimas lecturas</h2>
+              <p className="home-average-scope">Promedio global por tipo de dato: combina las muestras de los nodos y sensores de esta ubicación.</p>
             </div>
             <span className="home-average-count">Últimos 60 minutos · {lecturas.length} tipos</span>
           </div>
@@ -287,7 +294,7 @@ function Home() {
                 {promediosVisibles.map((lectura) => (
                   <article className="home-average-card" key={lectura.tipo_dato_id || lectura.tipo_dato}>
                     <FiActivity aria-hidden="true" />
-                    <div><h3>{lectura.tipo_dato}</h3><strong>{lectura.promedio} <small>{lectura.unidad}</small></strong></div>
+                    <div><h3>{lectura.tipo_dato}</h3><strong>{lectura.promedio} <small>{lectura.unidad}</small></strong><small className="home-average-sample-count">{cantidadMuestrasTexto(lectura.cantidad_lecturas)}</small></div>
                   </article>
                 ))}
               </div>
@@ -300,7 +307,7 @@ function Home() {
               {lecturas.map((lectura) => (
                 <article className="home-average-card" key={lectura.tipo_dato_id || lectura.tipo_dato}>
                   <FiActivity aria-hidden="true" />
-                  <div><h3>{lectura.tipo_dato}</h3><strong>{lectura.promedio} <small>{lectura.unidad}</small></strong></div>
+                  <div><h3>{lectura.tipo_dato}</h3><strong>{lectura.promedio} <small>{lectura.unidad}</small></strong><small className="home-average-sample-count">{cantidadMuestrasTexto(lectura.cantidad_lecturas)}</small></div>
                 </article>
               ))}
             </div>

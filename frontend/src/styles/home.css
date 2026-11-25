@@ -520,6 +520,7 @@
 .home-average-heading { margin-bottom: 0.85rem; }
 .home-average-heading > div > span { color: var(--ui-muted); font-size: 0.72rem; font-weight: 750; letter-spacing: 0.08em; }
 .home-average-heading h2 { margin: 0.1rem 0 0; color: var(--ui-text); font-size: 1.1rem; }
+.home-average-scope { margin: 0.2rem 0 0; color: var(--ui-muted); font-size: 0.78rem; line-height: 1.4; }
 .home-average-count { color: var(--ui-muted); font-size: 0.78rem; }
 .home-average-cards { display: grid; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; }
 .home-average-static-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 0.65rem; }
@@ -528,6 +529,7 @@
 .home-average-card h3 { overflow: hidden; margin: 0; color: var(--ui-muted); font-size: 0.75rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .home-average-card strong { color: var(--ui-text); font-size: 1.05rem; }
 .home-average-card strong small { color: var(--ui-muted); font-size: 0.72rem; font-weight: 500; }
+.home-average-card .home-average-sample-count { display: block; margin-top: 0.12rem; color: var(--ui-muted); font-size: 0.68rem; font-weight: 500; line-height: 1.3; }
 .home-average-arrow { display: grid; flex: 0 0 auto; width: 2rem; height: 2rem; place-items: center; padding: 0; border: 1px solid var(--ui-border); border-radius: 50%; background: var(--ui-surface); color: var(--ui-muted); cursor: pointer; }
 .home-average-arrow:hover, .home-average-arrow:focus-visible { border-color: var(--ui-primary); color: var(--ui-primary); outline: none; }
 .home-average-empty { margin: 0; padding: 0.9rem 1rem; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); color: var(--ui-muted); background: var(--ui-surface-raised); font-size: 0.9rem; }

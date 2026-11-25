@@ -47,7 +47,9 @@ test("gateway assignment, telemetry validation/statistics and command lifecycle 
   const sensorId = Number(sensorRows[0]?.id);
   const [typeRows] = await pool.query("SELECT id FROM tipo_dato WHERE nombre='Temperatura' ORDER BY id LIMIT 1");
   const typeId = Number(typeRows[0]?.id);
-  assert.ok(sensorId && typeId, "seed should create test sensor/type");
+  const [humidityTypeRows] = await pool.query("SELECT id FROM tipo_dato WHERE nombre='Humedad' ORDER BY id LIMIT 1");
+  const humidityTypeId = Number(humidityTypeRows[0]?.id);
+  assert.ok(sensorId && typeId && humidityTypeId, "seed should create test sensor/types");
 
   const serverOrigin = `http://127.0.0.1:${server.address().port}`;
   const adminHeaders = { authorization: `Bearer ${adminToken}`, "content-type": "application/json" };
@@ -224,10 +226,30 @@ test("gateway assignment, telemetry validation/statistics and command lifecycle 
   const [[heartbeatAfter]] = await pool.query("SELECT ultimo_heartbeat_at FROM dispositivo WHERE id=?", [nodeId]);
   assert.equal(new Date(heartbeatAfter.ultimo_heartbeat_at).getTime(), new Date(heartbeatBefore.ultimo_heartbeat_at).getTime(), "telemetry does not refresh heartbeat");
 
-  const oldCaptured = await request("/api/lecturas", { method: "POST", headers: gatewayHeaders, body: {
-    ...telemetryBase, seq: 3, lecturas: [{ sensor_id: sensorId, sensor_firmware_id: "dht22-1", canal: "gpio4", tipo_dato_id: typeId, dato: 30, unidad: "°C" }],
-  } });
-  assert.equal(oldCaptured.status, 201);
+  const rawBatch = { ...telemetryBase, seq: 3, lecturas: [
+    { sensor_id: sensorId, sensor_firmware_id: "dht22-1", canal: "gpio4", tipo_dato_id: typeId, dato: 30, unidad: "°C" },
+    { sensor_id: sensorId, sensor_firmware_id: "dht22-1", canal: "gpio4", tipo_dato_id: humidityTypeId, dato: 55, unidad: "%" },
+  ] };
+  const rawBatchResult = await request("/api/lecturas", { method: "POST", headers: gatewayHeaders, body: rawBatch });
+  assert.equal(rawBatchResult.status, 201);
+  assert.equal(rawBatchResult.body.items.filter((item) => item.status === "accepted").length, 2);
+  assert.equal(rawBatchResult.body.duplicate_count, 0);
+  const [[rawCountAfterInsert]] = await pool.query(`SELECT COUNT(*) AS total FROM lecturas l
+    JOIN gateway_telemetry_dedupe gd ON gd.lectura_id=l.id
+    WHERE gd.gateway_id=? AND gd.firmware_node_id=? AND gd.boot_id=? AND gd.seq=?`, [gatewayId,70001,rawBatch.boot_id,rawBatch.seq]);
+  assert.equal(Number(rawCountAfterInsert.total), 2, "each distinct reading is stored as an individual raw row");
+  const [storedRawRows] = await pool.query(`SELECT l.tipo_dato_id,l.dato FROM lecturas l
+    JOIN gateway_telemetry_dedupe gd ON gd.lectura_id=l.id
+    WHERE gd.gateway_id=? AND gd.firmware_node_id=? AND gd.boot_id=? AND gd.seq=? ORDER BY l.tipo_dato_id`, [gatewayId,70001,rawBatch.boot_id,rawBatch.seq]);
+  assert.deepEqual(storedRawRows.map((row) => [Number(row.tipo_dato_id),Number(row.dato)]).sort((a,b) => a[0]-b[0]),
+    [[typeId,30],[humidityTypeId,55]].sort((a,b) => a[0]-b[0]), "raw rows retain the distinct per-type values from the POST");
+  const replayedRawBatch = await request("/api/lecturas", { method: "POST", headers: gatewayHeaders, body: rawBatch });
+  assert.equal(replayedRawBatch.status, 200);
+  assert.equal(replayedRawBatch.body.duplicate_count, 2, "same boot_id+seq+sensor+type retries are deduplicated");
+  const [[rawCountAfterRetry]] = await pool.query(`SELECT COUNT(*) AS total FROM lecturas l
+    JOIN gateway_telemetry_dedupe gd ON gd.lectura_id=l.id
+    WHERE gd.gateway_id=? AND gd.firmware_node_id=? AND gd.boot_id=? AND gd.seq=?`, [gatewayId,70001,rawBatch.boot_id,rawBatch.seq]);
+  assert.equal(Number(rawCountAfterRetry.total), 2, "retry does not replace or add duplicate raw rows");
   const latest = await request(`/api/lecturas/ultimas?dispositivo_id=${nodeId}`);
   assert.ok(latest.body.datos.some((item) => Number(item.sensor_id) === sensorId && item.captured_at));
   const latestKeys = latest.body.datos.map((item) => `${item.sensor_id ?? "legacy"}:${item.tipo_dato}`);
