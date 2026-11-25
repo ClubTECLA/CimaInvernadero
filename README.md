@@ -69,3 +69,11 @@ pnpm run prod
 | Entrar a la terminal del backend     | `docker compose exec backend sh`          |
 | Conectarse a MySQL desde la terminal | `docker compose exec db mysql -u root -p` |
 | Borrar imágenes y caché de Docker    | `docker system prune -a`                  |
+
+## Guías del proyecto
+
+- [Interfaz web](frontend/README.md)
+- [Backend y API](backend/README.md)
+- [Base de datos](database/README.md)
+- [Documentación general](docs/README.md)
+- [Revisión local aislada](docs/PRUEBAS_LOCALES.md)
