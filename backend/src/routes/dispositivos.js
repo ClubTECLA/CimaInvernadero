@@ -368,8 +368,6 @@ router.patch("/nodos/:nodoId/componentes/:categoria/:id", verificarToken, async 
       );
       tareasPausadas = pausa.affectedRows;
     }
-    if (estado !== undefined || tipo_id !== undefined) {
-    }
     res.json({ message: "Componente actualizado", tareas_pausadas: tareasPausadas });
   } catch (error) {
     console.error("Error al actualizar componente:", error.message);
