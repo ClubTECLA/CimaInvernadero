@@ -23,9 +23,9 @@ pnpm run dev
 
 | Servicio | URL                              |
 | -------- | -------------------------------- |
-| Frontend | http://localhost:3000            |
+| Frontend | http://localhost:3001            |
 | Backend  | http://localhost:4000/api/health |
-| MySQL    | localhost:3307                   |
+| MySQL    | localhost:3308                   |
 
 ### Comandos de desarrollo
 
@@ -62,6 +62,14 @@ pnpm run prod
 | Apagar                         | `pnpm run prod:down`    |
 | Apagar y borrar datos de MySQL | `pnpm run prod:down -v` |
 
+## Archivos de Docker
+
+- `docker-compose.dev.yml`: desarrollo con recarga automática; puertos 3001, 4000 y 3308.
+- `docker-compose.yml`: despliegue habitual; publica la web en el puerto 80 y mantiene API y base de datos dentro de la red de Docker.
+- `docker/local-test.compose.yml`: complemento aislado para revisión local; publica la web en 3012, la API en 4012 y MySQL en 3312.
+
+Consulta [Docker y entornos](docker/README.md) antes de levantar o detener una instancia. Los archivos `.env` contienen valores locales y no deben subirse al repositorio.
+
 ## 4. Comandos útiles de Docker
 
 | Acción                               | Comando                                   |
@@ -77,3 +85,4 @@ pnpm run prod
 - [Base de datos](database/README.md)
 - [Documentación general](docs/README.md)
 - [Revisión local aislada](docs/PRUEBAS_LOCALES.md)
+- [Docker y entornos](docker/README.md)
