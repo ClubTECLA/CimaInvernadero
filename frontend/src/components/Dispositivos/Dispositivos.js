@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
@@ -12,6 +12,8 @@ import { AiFillEdit, AiFillDelete } from "react-icons/ai";
 import defaultImg from "../../Assets/icono_nodo_default.png";
 
 import { useAuth } from "../../context/AuthContext";
+import { useLocation } from "../../context/LocationContext";
+import LocationSelect from "../ui/LocationSelect";
 import { fetchAuth } from "../../utils/fetchAuth";
 import {
   estadoClases,
@@ -21,38 +23,20 @@ import {
   estadoEtiquetas,
 } from "../../utils/dispositivoFormatters";
 
-function obtenerEstadoCarrusel(carrusel) {
-  const tarjetas = carrusel.querySelectorAll(":scope > .node-carousel-slide");
-  const primera = tarjetas[0];
-  const ultima = tarjetas[tarjetas.length - 1];
-  if (!primera || !ultima) return { anterior: false, siguiente: false };
-
-  const area = carrusel.getBoundingClientRect();
-  const inicioVisible = area.left + carrusel.clientLeft;
-  const finVisible = inicioVisible + carrusel.clientWidth;
-  const primerLimite = primera.getBoundingClientRect();
-  const ultimoLimite = ultima.getBoundingClientRect();
-  return {
-    anterior: primerLimite.left < inicioVisible - 1,
-    siguiente: ultimoLimite.right > finVisible + 1,
-  };
-}
-
 function Dispositivos() {
   const { isAuthenticated } = useAuth();
+  const { ubicacionId } = useLocation();
 
   const [display, setDisplay] = useState();
   const [dispositivos, setDispositivos] = useState([]);
-  const [ubicaciones, setUbicaciones] = useState([]);
   const [editarDispositivo, setEditarDispositivo] = useState(null);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [filtroEstado, setFiltroEstado] = useState("");
-  const [filtroUbicacion, setFiltroUbicacion] = useState("1");
-  const carruselRef = useRef(null);
-  const [carruselPuedeAnterior, setCarruselPuedeAnterior] = useState(false);
-  const [carruselPuedeSiguiente, setCarruselPuedeSiguiente] = useState(false);
+  const [filtroUbicacion, setFiltroUbicacion] = useState(ubicacionId);
+  const [paginaNodos, setPaginaNodos] = useState(1);
+  const NODOS_POR_PAGINA = 5;
 
   const dispositivosFiltrados = useMemo(
     () =>
@@ -61,47 +45,12 @@ function Dispositivos() {
         (!filtroUbicacion || String(dispositivo.ubicacion_id) === String(filtroUbicacion))),
     [dispositivos, filtroEstado, filtroUbicacion],
   );
-  const otrosNodos = useMemo(
-    () => dispositivosFiltrados.filter((dispositivo) => dispositivo.id !== display?.id),
-    [dispositivosFiltrados, display?.id],
-  );
-  const actualizarControlesCarrusel = useCallback(() => {
-    const carrusel = carruselRef.current;
-    if (!carrusel) return;
-    const estado = obtenerEstadoCarrusel(carrusel);
-    setCarruselPuedeAnterior(estado.anterior);
-    setCarruselPuedeSiguiente(estado.siguiente);
-  }, []);
+  const otrosNodos = dispositivosFiltrados;
+  const totalPaginasNodos = Math.max(1, Math.ceil(otrosNodos.length / NODOS_POR_PAGINA));
+  const nodosVisibles = otrosNodos.slice((paginaNodos - 1) * NODOS_POR_PAGINA, paginaNodos * NODOS_POR_PAGINA);
 
-  function desplazarCarrusel(direccion) {
-    const carrusel = carruselRef.current;
-    if (!carrusel) return;
-    const estado = obtenerEstadoCarrusel(carrusel);
-    setCarruselPuedeAnterior(estado.anterior);
-    setCarruselPuedeSiguiente(estado.siguiente);
-    if (direccion < 0 && !estado.anterior) return;
-    if (direccion > 0 && !estado.siguiente) return;
-    const limite = Math.max(0, carrusel.scrollWidth - carrusel.clientWidth);
-    const destino = Math.min(limite, Math.max(0, carrusel.scrollLeft + direccion * carrusel.clientWidth));
-    carrusel.scrollTo({ left: destino, behavior: "smooth" });
-  }
-
-  useEffect(() => {
-    const carrusel = carruselRef.current;
-    if (!carrusel) return undefined;
-    carrusel.scrollLeft = 0;
-    const frameId = window.requestAnimationFrame(actualizarControlesCarrusel);
-    carrusel.addEventListener("scroll", actualizarControlesCarrusel, { passive: true });
-    window.addEventListener("resize", actualizarControlesCarrusel);
-    const observer = new ResizeObserver(actualizarControlesCarrusel);
-    observer.observe(carrusel);
-    return () => {
-      carrusel.removeEventListener("scroll", actualizarControlesCarrusel);
-      window.removeEventListener("resize", actualizarControlesCarrusel);
-      window.cancelAnimationFrame(frameId);
-      observer.disconnect();
-    };
-  }, [otrosNodos.length, filtroEstado, display?.id, actualizarControlesCarrusel]);
+  useEffect(() => setPaginaNodos(1), [filtroEstado, filtroUbicacion]);
+  useEffect(() => setPaginaNodos((pagina) => Math.min(pagina, totalPaginasNodos)), [totalPaginasNodos]);
 
   useEffect(() => {
     if (!dispositivosFiltrados.length) {
@@ -170,17 +119,10 @@ function Dispositivos() {
   useEffect(() => {
     let activo = true;
 
-    Promise.all([
-      fetchJson(`${API_URL}/api/dispositivos`),
-      fetchJson(`${API_URL}/api/catalogos/ubicaciones`),
-    ])
-      .then(([datos, datosUbicaciones]) => {
+    fetchJson(`${API_URL}/api/dispositivos`)
+      .then((datos) => {
         if (!activo) return;
         setDispositivos(datos);
-        setUbicaciones(datosUbicaciones);
-        setFiltroUbicacion((actual) => datosUbicaciones.some((ubicacion) => String(ubicacion.id) === String(actual))
-          ? actual
-          : String(datosUbicaciones[0]?.id || ""));
         setError(null);
       })
       .catch((err) => {
@@ -194,6 +136,10 @@ function Dispositivos() {
       activo = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (ubicacionId && String(filtroUbicacion) !== String(ubicacionId)) setFiltroUbicacion(ubicacionId);
+  }, [ubicacionId, filtroUbicacion]);
 
   return (
     <section>
@@ -213,26 +159,6 @@ function Dispositivos() {
               )}
             </Col>
             <Col xs="auto" className="text-end">
-              <select
-                className="device-status-filter"
-                value={filtroUbicacion}
-                onChange={(event) => setFiltroUbicacion(event.target.value)}
-                aria-label="Filtrar nodos por ubicación"
-              >
-                {ubicaciones.map((ubicacion) => <option key={ubicacion.id} value={ubicacion.id}>{ubicacion.nombre}</option>)}
-              </select>
-              <select
-                className="device-status-filter"
-                value={filtroEstado}
-                onChange={(event) => setFiltroEstado(event.target.value)}
-                aria-label="Filtrar nodos por estado"
-              >
-                <option value="">Todos los estados</option>
-                <option value="OPERATIVO">Operativos</option>
-                <option value="INACTIVO">Inactivos</option>
-                <option value="EN MANTENIMIENTO">En mantenimiento</option>
-                <option value="FALLANDO">Problemas o fallas</option>
-              </select>
               {isAuthenticated && (
                 <button
                   className="add-button"
@@ -244,99 +170,46 @@ function Dispositivos() {
             </Col>
           </Row>
         </Container>
-        <Container className="actual-display dispositivos-section card-component">
-          {cargando ? (
-            <p>Cargando nodos...</p>
-          ) : error ? (
-            <p className="alert alert-danger" role="alert">
-              {error}
-            </p>
-          ) : display ? (
-            <Row>
-              <Col md={3} lg={3}>
-                <img
-                  src={getAssetUrl(display?.image_path) || defaultImg}
-                  alt={display?.nombre}
-                  className={`dispositivo-img${display?.image_path ? "" : " dispositivo-img--default"}`}
-                  loading="lazy"
-                />
-              </Col>
-              <Col>
-                <div className="actual-display-info">
-                  <span
-                    className={`estado-badge ${estadoClases[display?.estado]}`}
-                  >
-                    {estadoEtiquetas[display?.estado] || display?.estado}
-                  </span>{" "}
-                  <div>
-            <h2>{display?.nombre}</h2>
-                    <h6 className="mb-0">Nodo de monitoreo</h6>
-                    {isAuthenticated && <small className="admin-record-id">ID del nodo: {display?.id}</small>}
-                  </div>
-                  {display?.descripcion_nodo && <p>{display.descripcion_nodo}</p>}
-                  <div className="mb-0">
-                    <strong>Zona: </strong> {display?.zona || "Sin zona asignada"}
-                    <br />
-                    {renderUbicacion(display)}
-                  </div>
-                  <div className="nodo-telemetria mt-2">
-                    <span><strong>Alimentación:</strong> {display?.tipo_alimentacion === "CORRIENTE_DIRECTA" ? "Corriente directa" : "Batería"}</span>
-                    {display?.tipo_alimentacion !== "CORRIENTE_DIRECTA" && <span><strong>Batería:</strong> {mostrarPorcentajeBateria(display?.bateria_porcentaje)}</span>}
-                    <span>
-                      <strong>Intervalo entre lecturas:</strong>{" "}
-                      {mostrarIntervaloConfigurado(display)}
-                    </span>
-                    <span>
-                      <strong>Última comunicación:</strong>{" "}
-                      {mostrarFecha(display?.ultima_comunicacion)}
-                    </span>
-                  </div>
-                </div>
-              </Col>
-              <Col md="auto" className="actual-display-config-buttons">
-                {isAuthenticated && (
-                  <button
-                    className="dispositivo-button editar-button"
-                    onClick={() => {
-                      setEditarDispositivo(display);
-                      setMostrarForm(true);
-                    }}
-                  >
-                    <AiFillEdit />
-                    Editar
-                  </button>
-                )}
-                {isAuthenticated && (
-                  <button
-                    className="dispositivo-button eliminar-button"
-                    onClick={handleEliminar}
-                  >
-                    <AiFillDelete />
-                    Eliminar
-                  </button>
-                )}
-              </Col>
-            </Row>
-          ) : (
-            <p>No hay nodos registrados.</p>
-          )}
-        </Container>
+        <section className="node-filters-panel" aria-label="Filtros de nodos">
+            <h2>Filtrar nodos</h2>
+            <div className="node-filter-field">
+              <LocationSelect id="device-location-filter" value={filtroUbicacion} onChange={setFiltroUbicacion} label="Ubicación" className="device-location-select" />
+            </div>
+            <div className="node-filter-field">
+              <label htmlFor="device-status-filter">Estado</label>
+              <select
+                id="device-status-filter"
+                className="device-status-filter"
+                value={filtroEstado}
+                onChange={(event) => setFiltroEstado(event.target.value)}
+              >
+                <option value="">Todos los estados</option>
+                <option value="OPERATIVO">Operativos</option>
+                <option value="INACTIVO">Inactivos</option>
+                <option value="EN MANTENIMIENTO">En mantenimiento</option>
+                <option value="FALLANDO">Problemas o fallas</option>
+              </select>
+            </div>
+        </section>
+        <div className="nodes-user-layout">
+        <aside className="node-list-sidebar" aria-label="Lista de nodos">
         <Container className="dispositivos-list-section">
           <div className="nodo-list-heading">
             <div>
               <h2>Lista de nodos</h2>
               <span>{dispositivosFiltrados.length} registrados</span>
             </div>
-            {otrosNodos.length > 1 && <div className="node-carousel-controls" aria-label="Controles del carrusel de nodos">
-              <button type="button" className="node-carousel-button" disabled={!carruselPuedeAnterior} onClick={() => desplazarCarrusel(-1)} aria-label="Mostrar nodos anteriores">‹</button>
-              <button type="button" className="node-carousel-button" disabled={!carruselPuedeSiguiente} onClick={() => desplazarCarrusel(1)} aria-label="Mostrar nodos siguientes">›</button>
+            {totalPaginasNodos > 1 && <div className="node-list-pagination" aria-label="Paginación de nodos">
+              <button type="button" className="node-carousel-button" disabled={paginaNodos === 1} onClick={() => setPaginaNodos((pagina) => pagina - 1)} aria-label="Página anterior de nodos">‹</button>
+              <span>{paginaNodos} / {totalPaginasNodos}</span>
+              <button type="button" className="node-carousel-button" disabled={paginaNodos === totalPaginasNodos} onClick={() => setPaginaNodos((pagina) => pagina + 1)} aria-label="Página siguiente de nodos">›</button>
             </div>}
           </div>
-          {otrosNodos.length > 0 ? <div className="node-carousel-track" ref={carruselRef} role="region" aria-label="Nodos disponibles" aria-roledescription="carrusel">
-            {otrosNodos.map((d) => (
+          {nodosVisibles.length > 0 ? <div className="node-list-track" role="region" aria-label="Nodos disponibles">
+            {nodosVisibles.map((d) => (
               <div className="node-carousel-slide" key={d.id} role="group" aria-label={d.nombre}>
                 <div
-                  className="dispositivo-card card-component"
+                  className={`dispositivo-card card-component${display?.id === d.id ? " selected" : ""}`}
                   onClick={() => setDisplay(d)}
                   role="button"
                   tabIndex={0}
@@ -358,20 +231,94 @@ function Dispositivos() {
                   <span className={`estado-badge ${estadoClases[d?.estado]}`}>
                     {estadoEtiquetas[d.estado] || d.estado}
                   </span>
-                  <small className="nodo-card-meta">Zona: {d.zona || "Sin zona asignada"}</small>
+                  <small className="nodo-card-meta nodo-card-zone">Zona: {d.zona || "Sin zona asignada"}</small>
                   <small className="nodo-card-meta">Alimentación: {d?.tipo_alimentacion === "CORRIENTE_DIRECTA" ? "Corriente directa" : "Batería"}</small>
                   {d?.tipo_alimentacion !== "CORRIENTE_DIRECTA" && <small className="nodo-card-telemetria">Batería: {mostrarPorcentajeBateria(d?.bateria_porcentaje)}</small>}
-                  <small className="nodo-card-meta">
-                    Intervalo entre lecturas: {mostrarIntervaloConfigurado(d)}
-                  </small>
-                  <small className="nodo-card-meta">
-                    Última: {mostrarFecha(d?.ultima_comunicacion)}
-                  </small>
+                  <small className="nodo-card-meta">Intervalo entre lecturas: {mostrarIntervaloConfigurado(d)}</small>
+                  <small className="nodo-card-meta">Última: {mostrarFecha(d?.ultima_comunicacion)}</small>
                 </div>
               </div>
             ))}
           </div> : <p className="empty-filter-message">{dispositivosFiltrados.length ? "No hay otros nodos para mostrar." : "No hay nodos con el estado seleccionado."}</p>}
         </Container>
+        </aside>
+        <Container className="actual-display dispositivos-section card-component">
+          {cargando ? (
+            <p>Cargando nodos...</p>
+          ) : error ? (
+            <p className="alert alert-danger" role="alert">
+              {error}
+            </p>
+          ) : display ? (
+            <div className="node-detail-layout">
+              <div className="node-detail-photo">
+                <img
+                  src={getAssetUrl(display?.image_path) || defaultImg}
+                  alt={display?.nombre}
+                  className={`dispositivo-img${display?.image_path ? "" : " dispositivo-img--default"}`}
+                  loading="lazy"
+                />
+              </div>
+              <div className="actual-display-info">
+                <div className="node-detail-heading">
+                  <div className="node-detail-title">
+                  <span
+                    className={`estado-badge ${estadoClases[display?.estado]}`}
+                  >
+                    {estadoEtiquetas[display?.estado] || display?.estado}
+                  </span>{" "}
+                    <h2>{display?.nombre}</h2>
+                    <h6 className="mb-0">Nodo de monitoreo</h6>
+                    {isAuthenticated && <small className="admin-record-id">ID del nodo: {display?.id}</small>}
+                  </div>
+                  <div className="actual-display-config-buttons">
+                    {isAuthenticated && (
+                      <button
+                        className="dispositivo-button editar-button"
+                        onClick={() => {
+                          setEditarDispositivo(display);
+                          setMostrarForm(true);
+                        }}
+                      >
+                        <AiFillEdit />
+                        Editar
+                      </button>
+                    )}
+                    {isAuthenticated && (
+                      <button
+                        className="dispositivo-button eliminar-button"
+                        onClick={handleEliminar}
+                      >
+                        <AiFillDelete />
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                </div>
+                  {display?.descripcion_nodo && <p>{display.descripcion_nodo}</p>}
+                  <div className="node-detail-location">
+                    <span><strong>Zona:</strong> {display?.zona || "Sin zona asignada"}</span>
+                    {renderUbicacion(display)}
+                  </div>
+                  <div className="nodo-telemetria mt-2">
+                    <span><strong>Alimentación:</strong> {display?.tipo_alimentacion === "CORRIENTE_DIRECTA" ? "Corriente directa" : "Batería"}</span>
+                    {display?.tipo_alimentacion !== "CORRIENTE_DIRECTA" && <span><strong>Batería:</strong> {mostrarPorcentajeBateria(display?.bateria_porcentaje)}</span>}
+                    <span>
+                      <strong>Intervalo entre lecturas:</strong>{" "}
+                      {mostrarIntervaloConfigurado(display)}
+                    </span>
+                    <span>
+                      <strong>Última comunicación:</strong>{" "}
+                      {mostrarFecha(display?.ultima_comunicacion)}
+                    </span>
+                  </div>
+              </div>
+            </div>
+          ) : (
+            <p>No hay nodos registrados.</p>
+          )}
+        </Container>
+        </div>
       </Container>
       <DispositivosForm
         show={mostrarForm}

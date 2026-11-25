@@ -352,7 +352,13 @@
 
 :root[data-theme="dark"] .zone-map-segment { text-shadow: 0 1px 2px #17211c; }
 
-:root[data-theme="dark"] .home-node-marker { border-color: #17211c; }
+:root[data-theme="dark"] .home-node-marker {
+  border-color: var(--node-status-color, #60796b);
+  background: var(--ui-surface, #202b26);
+  color: var(--ui-text, #e4ece7);
+}
+:root[data-theme="dark"] .home-average-section { border-color: var(--ui-border); background: var(--ui-surface); }
+:root[data-theme="dark"] .home-average-card { border-color: var(--ui-border); background: var(--ui-surface-raised); color: var(--ui-text); }
 :root[data-theme="dark"] .home-status-legend { color: #b8ccc0; }
 
 :root[data-theme="dark"] .catalogo-category-sensor { color: #bdf3d2; background: #205b3d; border-color: #37845b; }

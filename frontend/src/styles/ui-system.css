@@ -1,0 +1,711 @@
+:root {
+  --ui-page: #eef4ef;
+  --ui-surface: #ffffff;
+  --ui-surface-raised: #f8fbf8;
+  --ui-border: #d7e5da;
+  --ui-border-strong: #b7cdbd;
+  --ui-text: #183c30;
+  --ui-muted: #60746a;
+  --ui-primary: #147a4a;
+  --ui-primary-hover: #0e633b;
+  --ui-focus: #2f9e69;
+  --ui-switch-off: #e1e9e3;
+  --ui-switch-off-border: #94aa9a;
+  --ui-switch-on: #168044;
+  --ui-switch-on-border: #168044;
+  --ui-shadow: 0 14px 35px rgba(21, 67, 45, 0.08);
+  --ui-radius-lg: 1.1rem;
+  --ui-radius-md: 0.75rem;
+}
+
+:root[data-theme="dark"] {
+  --ui-page: #111915;
+  --ui-surface: #202b26;
+  --ui-surface-raised: #293a31;
+  --ui-border: #40564a;
+  --ui-border-strong: #557263;
+  --ui-text: #e4ece7;
+  --ui-muted: #b8ccc0;
+  --ui-primary: #2a9a62;
+  --ui-primary-hover: #35b774;
+  --ui-focus: #85dfaa;
+  --ui-switch-off: #26352d;
+  --ui-switch-off-border: #789083;
+  --ui-switch-on: #168044;
+  --ui-switch-on-border: #168044;
+  --ui-shadow: 0 16px 38px rgba(0, 0, 0, 0.18);
+}
+
+html { background: var(--ui-page); }
+
+body {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(72, 151, 104, 0.08), transparent 32rem),
+    var(--ui-page);
+  color: var(--ui-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.navbar,
+.navbar.sticky {
+  background: #0d4f39 !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .navbar,
+:root[data-theme="dark"] .navbar.sticky {
+  background: #142b22 !important;
+  box-shadow: 0 1px 0 var(--ui-border);
+}
+
+.navbar-nav .nav-link.active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.app-content {
+  width: 100%;
+  padding: 1.5rem 0 3rem;
+}
+
+.card-component,
+.data-page-section,
+.dispositivos-section,
+.catalogos-display > .card-component,
+.home-section,
+.control-shell {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow);
+}
+
+.card-component { overflow: hidden; }
+
+h1, h2, h3, h4 { letter-spacing: -0.025em; }
+
+h1 { font-size: clamp(1.75rem, 2.5vw, 2.6rem); font-weight: 750; }
+h2 { font-size: clamp(1.25rem, 1.8vw, 1.65rem); font-weight: 720; }
+
+p { color: var(--ui-muted); }
+
+button,
+select,
+input,
+textarea { font: inherit; }
+
+button,
+.btn,
+.form-select,
+.form-control { transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease, transform 160ms ease; }
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+.form-select:focus-visible,
+.form-control:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ui-focus) 68%, transparent);
+  outline-offset: 2px;
+}
+
+.form-control,
+.form-select {
+  min-height: 2.7rem;
+  border-color: var(--ui-border-strong);
+  border-radius: var(--ui-radius-md);
+  background-color: var(--ui-surface-raised);
+  color: var(--ui-text);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--ui-focus);
+  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--ui-focus) 18%, transparent);
+}
+
+/* Un único estilo para los switches funcionales de toda la interfaz. */
+.form-check.form-switch .form-check-input[role="switch"] {
+  float: none;
+  width: 2.6rem;
+  height: 1.4rem;
+  margin: 0;
+  border-color: var(--ui-switch-off-border);
+  background-color: var(--ui-switch-off);
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.form-check.form-switch .form-check-input[role="switch"]:checked {
+  border-color: var(--ui-switch-on-border);
+  background-color: var(--ui-switch-on);
+}
+
+.form-check.form-switch .form-check-input[role="switch"]:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.form-check.form-switch .form-check-input[role="switch"]:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.btn,
+.add-button,
+.single-display-add,
+.dispositivo-button,
+.filter-reset-button {
+  min-height: 2.55rem;
+  border-radius: 0.65rem;
+  font-weight: 650;
+}
+
+.btn-success,
+.add-button { background-color: var(--ui-primary); border-color: var(--ui-primary); }
+.btn-success:hover,
+.add-button:hover { background-color: var(--ui-primary-hover); border-color: var(--ui-primary-hover); transform: translateY(-1px); }
+
+.status-message,
+.app-loading {
+  max-width: 72rem;
+  margin: 1.5rem auto;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  color: var(--ui-muted);
+  box-shadow: var(--ui-shadow);
+}
+
+.app-loading { text-align: center; }
+
+.location-select-control { display: grid; gap: 0.35rem; min-width: 12rem; }
+.location-select-control > label { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--ui-muted); font-size: 0.78rem; font-weight: 750; }
+.location-select-control > label svg { color: var(--ui-primary); }
+.location-select-error,
+.filter-load-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #d99891;
+  border-radius: var(--ui-radius-md);
+  background: #fff2f0;
+  color: #842b26;
+  font-size: 0.875rem;
+}
+
+.filter-load-error { margin: 0; }
+.location-select-error .btn,
+.filter-load-error .btn,
+.table-error-state .btn { flex: none; }
+
+.table-error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  width: min(100%, 42rem);
+  margin: 0.25rem auto;
+  padding: 0.75rem;
+  border: 1px solid #d99891;
+  border-radius: var(--ui-radius-md);
+  background: #fff2f0;
+  color: #842b26;
+}
+
+.datos-export-button:disabled {
+  transform: none;
+  opacity: 1;
+  border-color: var(--ui-border-strong);
+  background: var(--ui-surface-raised);
+  color: var(--ui-muted);
+  cursor: not-allowed;
+}
+
+:root[data-theme="dark"] .location-select-error,
+:root[data-theme="dark"] .filter-load-error,
+:root[data-theme="dark"] .table-error-state {
+  border-color: #84534d;
+  background: #332522;
+  color: #ffd5ce;
+}
+
+.local-demo-banner {
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid #d5b95d;
+  background: #fff4cc;
+  color: #493900;
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+:root[data-theme="dark"] .local-demo-banner {
+  border-color: #77642d;
+  background: #332d1b;
+  color: #f7e5a1;
+}
+.device-location-select { min-width: 10rem; }
+.device-location-select .form-select { min-width: 10rem; }
+
+.home-location-selector { min-width: 15rem; }
+.home-location-selector .form-select { min-width: 0; }
+
+.app-error-boundary {
+  display: grid;
+  min-height: 60vh;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.app-error-boundary__card {
+  width: min(100%, 34rem);
+  padding: 2rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow);
+  text-align: center;
+}
+
+.app-error-boundary__eyebrow {
+  color: var(--ui-primary);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 767px) {
+  .app-content { padding-top: 1rem; padding-bottom: 2rem; }
+  .card-component,
+  .data-page-section,
+  .dispositivos-section,
+  .catalogos-display > .card-component,
+  .home-section,
+  .control-shell { border-radius: 0.85rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/*
+ * Capa visual del producto: superficies claras, jerarquía consistente y
+ * acciones alineadas. Se mantiene separada de los estilos funcionales de cada
+ * pantalla para poder ajustar el diseño sin tocar la lógica de negocio.
+ */
+:root[data-theme="light"] {
+  --ui-page: #f2f6f3;
+  --ui-surface: #ffffff;
+  --ui-surface-raised: #f8fbf9;
+  --ui-border: #d7e5dc;
+  --ui-border-strong: #b8cdbf;
+  --ui-text: #183c30;
+  --ui-muted: #60756a;
+  --ui-primary: #167b4b;
+  --ui-primary-hover: #0e633b;
+}
+
+:root[data-theme="light"] {
+  --theme-surface: var(--ui-surface);
+  --theme-surface-raised: var(--ui-surface-raised);
+  --theme-surface-soft: #f0f7f1;
+  --theme-border: var(--ui-border);
+  --theme-text: var(--ui-text);
+  --theme-muted: var(--ui-muted);
+}
+
+:root[data-theme="dark"] {
+  --ui-page: #101815;
+  --ui-surface: #1c2922;
+  --ui-surface-raised: #24362c;
+  --ui-border: #3c5949;
+  --ui-border-strong: #557363;
+  --ui-text: #e7f0ea;
+  --ui-muted: #b7cbbd;
+  --ui-primary: #3da66f;
+  --ui-primary-hover: #53bc82;
+  --ui-focus: #8be1ad;
+}
+
+:root[data-theme="dark"] {
+  --theme-surface: var(--ui-surface);
+  --theme-surface-raised: var(--ui-surface-raised);
+  --theme-surface-soft: #24332b;
+  --theme-border: var(--ui-border);
+  --theme-text: var(--ui-text);
+  --theme-muted: var(--ui-muted);
+}
+
+body {
+  overflow-x: hidden;
+  background: var(--ui-page);
+}
+
+.app-content {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding-inline: clamp(0.75rem, 2.4vw, 2.5rem);
+}
+
+.card-component,
+.data-page-section,
+.dispositivos-section,
+.home-section,
+.control-shell,
+.map-card,
+.sensor-section,
+.actuator-card,
+.actuator-management-form,
+.actuator-management-list {
+  background: var(--ui-surface);
+  border-color: var(--ui-border);
+  box-shadow: none;
+}
+
+.card-component:hover,
+.data-page-section:hover,
+.dispositivos-section:hover,
+.home-section:hover,
+.control-shell:hover { border-color: var(--ui-border-strong); }
+
+.single-display-title,
+.dispositivos-title,
+.control-header,
+.filter-section-title,
+.lecturas-title,
+.section-heading,
+.map-card-heading,
+.home-plan-heading {
+  align-items: center;
+}
+
+.single-display,
+.data-page-section,
+.dispositivos-section,
+.home-section,
+.control-shell {
+  border-radius: 0.7rem;
+}
+
+.single-display-title,
+.dispositivos-title,
+.control-header,
+.filter-section-title,
+.lecturas-title,
+.section-heading,
+.map-card-heading,
+.home-plan-heading {
+  position: relative;
+}
+
+.single-display-title::after,
+.dispositivos-title::after,
+.control-header::after,
+.filter-section-title::after,
+.lecturas-title::after,
+.section-heading::after,
+.map-card-heading::after { display: none; }
+
+.single-display-title h2,
+.dispositivos-title h1,
+.control-header h1,
+.filter-section-title h2,
+.lecturas-title h2,
+.section-heading h2,
+.map-card-heading h2 {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+}
+
+.single-display-title p,
+.dispositivos-title p,
+.control-header p,
+.filter-section-title p,
+.map-card-heading p {
+  max-width: 62rem;
+  margin-bottom: 0;
+}
+
+.filter-section,
+.data-page-section,
+.single-display,
+.actual-display,
+.control-shell,
+.home-section {
+  padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.filter-fields-row {
+  gap: 1rem;
+}
+
+.filter-reset-button,
+.control-refresh,
+.device-status-filter,
+.page-size-control select {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-surface-raised);
+  color: var(--ui-text);
+}
+
+.single-display-add,
+.add-button,
+.datos-export-button,
+.btn-success {
+  box-shadow: none;
+}
+
+.single-display-add:hover,
+.add-button:hover,
+.datos-export-button:hover:not(:disabled),
+.btn-success:hover {
+  filter: brightness(1.04);
+}
+
+.home-plan-heading,
+.control-header,
+.dispositivos-title {
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.home-plan-frame,
+.home-node-details,
+.zone-map-card,
+.zone-list-card,
+.node-location-card,
+.node-components-card,
+.node-telemetry-card {
+  border-color: var(--ui-border);
+  box-shadow: none;
+}
+
+.form-control,
+.form-select,
+.device-status-filter,
+.page-size-control select {
+  min-height: 2.8rem;
+}
+
+.single-display-buttons { gap: 0.45rem; }
+
+.single-display-edit,
+.single-display-delete,
+.single-display-add,
+.add-button {
+  min-width: 2.6rem;
+  min-height: 2.6rem;
+  border-radius: 0.55rem;
+}
+
+.estado-badge,
+.general-state,
+.home-plan-note,
+.map-dimension,
+.sensor-count {
+  border-radius: 0.45rem;
+}
+
+.hardware-note,
+.control-header .control-connectivity-note,
+.control-inline-error,
+.actuator-rule-blocked {
+  border-radius: 0.55rem;
+  box-shadow: none;
+}
+
+.table-responsive,
+.table,
+.table-head th {
+  border-color: var(--ui-border);
+}
+
+.table-head th { letter-spacing: 0.02em; }
+
+@media (min-width: 768px) {
+  .data-page,
+  .dispositivos-page,
+  .home-section {
+    width: min(100%, 1400px);
+  }
+}
+
+@media (max-width: 767px) {
+  .app-content { padding-inline: 0.75rem; }
+
+  .single-display-title,
+  .dispositivos-title,
+  .control-header,
+  .filter-section-title,
+  .lecturas-title,
+  .section-heading,
+  .map-card-heading,
+  .home-plan-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .single-display-add,
+  .add-button,
+  .datos-export-button,
+  .control-refresh { align-self: flex-start; }
+}
+
+/* Ajustes responsivos: se conserva la misma jerarquía y paleta del escritorio. */
+@media (max-width: 991.98px) {
+  .navbar { padding: 0.45rem 0.8rem !important; }
+  .navbar .container { flex-wrap: wrap; }
+  .navbar-expand-lg .navbar-toggler { display: block; }
+  .navbar-expand-lg .navbar-collapse { flex-basis: 100%; }
+  .navbar-nav { align-items: flex-start; gap: 0.15rem; }
+  .navbar-nav .nav-item { width: 100%; margin-left: 0; }
+  .navbar-nav .nav-item a { min-height: 2.7rem; padding: 0.55rem 0.75rem; }
+  .theme-nav-item { padding-inline: 0.5rem; }
+  .local-demo-banner { overflow-wrap: anywhere; }
+
+  .data-page,
+  .dispositivos-page,
+  .home-section,
+  .control-shell {
+    width: min(100%, 70rem);
+    max-width: 100%;
+  }
+
+  .dispositivos-title .row { row-gap: 0.85rem; }
+  .dispositivos-title .row > .col.text-end {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    gap: 0.65rem;
+    width: 100%;
+    text-align: left !important;
+  }
+  .dispositivos-title .row > .col.text-end > .add-button { grid-column: 1 / -1; justify-self: start; }
+  .dispositivos-title .device-location-select,
+  .dispositivos-title .device-location-select .form-select,
+  .dispositivos-title .device-status-filter { width: 100%; min-width: 0; margin: 0; }
+}
+
+@media (max-width: 767px) {
+  body { padding-top: 4.75rem; }
+  .navbar { padding: 0.45rem 0.75rem !important; }
+  .navbar .container { padding-inline: 0; }
+  .navbar-brand { min-width: 0; margin-right: 0.45rem; }
+  .navbar-brand p { margin-left: 0.5rem; font-size: 0.9rem; }
+  .navbar-toggler { min-width: 2.75rem; min-height: 2.75rem; padding: 0.35rem; }
+  .navbar-nav { gap: 0.15rem; }
+  .navbar-nav .nav-link { min-height: 2.7rem; padding: 0.55rem 0.75rem; }
+
+  .app-content {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: 0;
+    padding: 0.8rem 0.7rem 1.5rem;
+  }
+  .App > footer { margin-left: 0; }
+
+  .data-page,
+  .dispositivos-page { width: 100%; max-width: none; padding-inline: 0; }
+
+  .data-page-section,
+  .dispositivos-section,
+  .single-display,
+  .actual-display,
+  .control-shell,
+  .home-section {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    padding: clamp(0.85rem, 3.5vw, 1.15rem);
+  }
+
+  .dispositivos-title h1 { position: static; }
+  .dispositivos-title p { margin: 0.35rem 0 0; }
+  .dispositivos-title .hardware-note { margin-top: 0.75rem; }
+  .dispositivos-title .row > .col.text-end {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.55rem;
+    padding-inline: 0.75rem;
+  }
+  .dispositivos-title .row > .col.text-end > .add-button { grid-column: auto; }
+  .dispositivos-title .device-location-select,
+  .dispositivos-title .device-location-select .form-select,
+  .dispositivos-title .device-status-filter { width: 100%; min-width: 0; margin: 0; }
+
+  .actual-display { padding: 0.85rem; }
+  .actual-display-info { margin-left: 0; }
+  .actual-display-info > * { margin-block: 0.8rem; }
+  .actual-display-config-buttons { justify-content: flex-start; }
+  .nodo-telemetria { gap: 0.6rem 1rem; }
+
+  .home-state-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
+  .home-state-card { min-width: 0; padding: 0.65rem; }
+  .home-plan-frame { min-height: clamp(15rem, 58vw, 23rem); }
+  .home-map-toolbar { flex-wrap: wrap; gap: 0.45rem; }
+  .home-status-legend { flex-wrap: wrap; gap: 0.45rem 0.8rem; }
+  .home-node-details { min-width: 0; padding: 0.9rem; }
+
+  .filter-fields-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  .filter-fields-row > .filter { min-width: 0; }
+  .filter-fields-row .form-control,
+  .filter-fields-row .form-select { width: 100%; min-width: 0; }
+  .table-error-state { align-items: stretch; flex-direction: column; text-align: center; }
+  .table-error-state .btn { align-self: center; }
+  .lecturas-title { align-items: flex-start; gap: 0.7rem; }
+  .page-size-control { margin-left: 0; }
+  .pagination-footer { flex-wrap: wrap; gap: 0.6rem; }
+  .data-page .table-responsive { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+  .data-page .table-responsive > table { min-width: 42rem; }
+
+  .zone-map-card,
+  .zone-list-card { min-width: 0; padding: 0.8rem; }
+  .zone-map-canvas { aspect-ratio: 1.18; }
+  .zone-map-heading,
+  .zone-list-heading { gap: 0.55rem; }
+  .zone-map-size { white-space: normal; text-align: right; }
+  .catalogos-location-content { grid-template-columns: minmax(0, 1fr); }
+  .catalogos-location-image-wrap { width: 100%; }
+  .catalogos-location-measures > div { padding: 0.6rem 0.5rem; }
+
+  .actuator-rule-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .actuator-rule-input { min-width: 0; }
+  .actuator-rule-input .form-select,
+  .actuator-rule-input .form-control { width: 100%; min-width: 0; }
+  .control-task-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+
+  .modal-dialog { width: calc(100% - 1rem); max-width: none; margin: 0.5rem auto; }
+  .modal-content { max-height: calc(100dvh - 1rem); overflow-y: auto; }
+  .app-error-boundary { min-height: 50vh; padding: 1rem 0.25rem; }
+  .app-error-boundary__card { padding: 1.25rem; }
+}
+
+@media (max-width: 575px) {
+  .filter-fields-row,
+  .actuator-rule-form { grid-template-columns: minmax(0, 1fr); }
+  .actuator-rule-mode { grid-column: auto; }
+  .home-plan-frame { min-height: 15rem; }
+  .zone-map-canvas { aspect-ratio: 1.05; }
+  .zone-map-heading { align-items: flex-start; flex-direction: column; }
+  .zone-map-size { align-self: flex-start; text-align: left; }
+  .catalogos-location-measures { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .catalogos-location-measures > div { overflow-wrap: anywhere; }
+  .catalogos-location-measures strong { font-size: 0.7rem; }
+  .lecturas-title { padding-inline: 0.85rem; }
+  .page-size-control { flex-wrap: wrap; white-space: normal; }
+  .pagination-section { flex-wrap: wrap; justify-content: center; }
+}
+
+@media (max-width: 359px) {
+  .home-state-summary { grid-template-columns: minmax(0, 1fr); }
+  .navbar-brand p { max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-plan-frame { min-height: 13rem; }
+}

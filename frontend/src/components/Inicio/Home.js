@@ -5,8 +5,11 @@ import Col from "react-bootstrap/Col";
 
 import { API_URL, fetchJson, getAssetUrl } from "../../utils/api";
 import { useSiteDimensions } from "../../context/SiteDimensionsContext";
+import { useLocation } from "../../context/LocationContext";
+import LocationSelect from "../ui/LocationSelect";
 
-import { FiActivity, FiCpu, FiMapPin } from "react-icons/fi";
+import { FiActivity, FiChevronLeft, FiChevronRight, FiCpu, FiMapPin } from "react-icons/fi";
+import defaultNodeImage from "../../Assets/icono_nodo_default.png";
 import {
   estadoClases,
   estadoEtiquetas,
@@ -15,35 +18,31 @@ import {
   mostrarPorcentajeBateria,
 } from "../../utils/dispositivoFormatters";
 
-const VENTANA_PROMEDIO_MINUTOS = 60;
-
-function obtenerTonoTipoDato(nombre) {
-  let hash = 0;
-  for (const caracter of String(nombre || "Dato")) {
-    hash = (hash * 31 + caracter.codePointAt(0)) | 0;
-  }
-  return ((hash % 360) + 360) % 360;
-}
-
 function Home() {
   const { dimensions: dimensionesSitio } = useSiteDimensions();
+  const {
+    ubicacionActual,
+    seleccionarUbicacion,
+    loading: ubicacionesCargando,
+    error: errorUbicaciones,
+  } = useLocation();
   const [lecturas, setLecturas] = useState([]);
+  const [indicePromedios, setIndicePromedios] = useState(0);
 
   const [nodos, setNodos] = useState([]);
-  const [ubicaciones, setUbicaciones] = useState([]);
-  const [ubicacionActual, setUbicacionActual] = useState(null);
   const [nodoSeleccionado, setNodoSeleccionado] = useState(null);
   const solicitudLecturasId = useRef(0);
   const [lecturasNodo, setLecturasNodo] = useState([]);
   const [cargandoNodo, setCargandoNodo] = useState(false);
   const [errorNodo, setErrorNodo] = useState(null);
-  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const dimensionesSeleccionadas = ubicacionActual
     ? { largo: Number(ubicacionActual.largo), ancho: Number(ubicacionActual.ancho), altura: Number(ubicacionActual.altura) }
     : dimensionesSitio;
 
-  const nodosDeUbicacion = nodos.filter((nodo) => !ubicacionActual || String(nodo.ubicacion_id) === String(ubicacionActual.id));
+  const nodosDeUbicacion = ubicacionActual
+    ? nodos.filter((nodo) => String(nodo.ubicacion_id) === String(ubicacionActual.id))
+    : [];
   const nodosConUbicacion = nodosDeUbicacion.filter((nodo) => {
     if (!dimensionesSeleccionadas) return false;
     const largo = Number(nodo.largo);
@@ -59,18 +58,17 @@ function Home() {
     );
   });
   const nodosSinUbicacion = nodosDeUbicacion.filter((nodo) => !nodosConUbicacion.includes(nodo));
+  const promediosVisibles = lecturas.length > 3
+    ? Array.from({ length: 3 }, (_, indice) => lecturas[(indicePromedios + indice) % lecturas.length])
+    : [];
+
+  useEffect(() => setIndicePromedios(0), [ubicacionActual?.id]);
 
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([
-      fetchJson(`${API_URL}/api/dispositivos`, { signal: controller.signal }),
-      fetchJson(`${API_URL}/api/catalogos/ubicaciones`, { signal: controller.signal }),
-    ])
-      .then(([datos, ubicaciones]) => {
+    fetchJson(`${API_URL}/api/dispositivos`, { signal: controller.signal })
+      .then((datos) => {
         setNodos(datos.slice().sort((a, b) => a.id - b.id));
-        setUbicaciones(ubicaciones);
-        setUbicacionActual(ubicaciones[0] || null);
-        if (!ubicaciones.length) setCargando(false);
       })
       .catch((err) => {
         if (err.name !== "AbortError") setError("No fue posible cargar los nodos");
@@ -117,9 +115,8 @@ function Home() {
   }
 
   function cambiarUbicacion(id) {
-    const nuevaUbicacion = ubicaciones.find((ubicacion) => String(ubicacion.id) === String(id)) || null;
-    setUbicacionActual(nuevaUbicacion);
-    setCargando(true);
+    seleccionarUbicacion(id);
+    setLecturas([]);
     solicitudLecturasId.current += 1;
     setNodoSeleccionado(null);
     setLecturasNodo([]);
@@ -128,21 +125,31 @@ function Home() {
   }
 
   useEffect(() => {
-    if (!ubicacionActual?.id) return undefined;
+    if (!ubicacionActual?.id) {
+      if (!ubicacionesCargando) {
+        setLecturas([]);
+      }
+      return undefined;
+    }
     let activo = true;
 
     async function fetchPromedio() {
       try {
         const filtroUbicacion = ubicacionActual?.id ? `?ubicacion_id=${encodeURIComponent(ubicacionActual.id)}` : "";
-        const datos = await fetchJson(`${API_URL}/api/lecturas/promedio${filtroUbicacion}`);
+        const respuesta = await fetchJson(`${API_URL}/api/lecturas/promedio${filtroUbicacion}`);
         if (!activo) return;
 
-        setLecturas(datos.datos || []);
+        const promedios = Array.isArray(respuesta?.global?.datos)
+          ? respuesta.global.datos
+          : Array.isArray(respuesta?.datos) ? respuesta.datos : [];
+        setLecturas(promedios);
         setError(null);
       } catch {
-        if (activo) setError("Error al cargar las lecturas");
+        if (activo) {
+          setLecturas([]);
+          setError("Error al cargar las lecturas");
+        }
       } finally {
-        if (activo) setCargando(false);
       }
     }
 
@@ -152,10 +159,12 @@ function Home() {
       activo = false;
       clearInterval(intervalo);
     };
-  }, [ubicacionActual?.id]);
+  }, [ubicacionActual?.id, ubicacionesCargando]);
 
   return (
     <section>
+      {(error || errorUbicaciones) && <p className="status-message alert alert-danger" role="alert">{error || errorUbicaciones}</p>}
+
       <Container className="home-section card-component home-plan-section">
         <Container className="home-content">
           <div className="home-plan-heading">
@@ -163,43 +172,40 @@ function Home() {
               <h1 className="heading">Ubicación de nodos</h1>
               <p>Los nodos se colocan según las coordenadas registradas.</p>
             </div>
-            <div className="home-location-selector">
-              <span id="home-location-label"><FiMapPin aria-hidden="true" /> Ubicación actual</span>
-              <div className="home-location-select-row">
-                <select className="form-select form-select-sm" value={ubicacionActual?.id || ""} onChange={(event) => cambiarUbicacion(event.target.value)} aria-labelledby="home-location-label" title="Seleccionar ubicación">
-                  {ubicaciones.length ? ubicaciones.map((ubicacion) => <option key={ubicacion.id} value={ubicacion.id}>{ubicacion.nombre}</option>) : <option value="">Cargando ubicación…</option>}
-                </select>
-              </div>
-            </div>
+            <LocationSelect id="home-location" className="home-location-selector" value={ubicacionActual?.id || ""} onChange={cambiarUbicacion} label="Ubicación actual" />
           </div>
           <Row className="g-3 align-items-stretch home-plan-row">
-            <Col lg={8}>
+            <Col xl={7}>
               <div className="home-plan-frame" style={{ backgroundImage: getAssetUrl(ubicacionActual?.map_image_path) ? `url(${getAssetUrl(ubicacionActual.map_image_path)})` : "none" }}>
-                <div className="home-node-layer" aria-label="Nodos del sitio">
+          <div className="home-node-layer" aria-label="Nodos del sitio">
                   {nodosConUbicacion.map((nodo) => {
                     const seleccionado = nodoSeleccionado?.id === nodo.id;
                     const estadoNormalizado = nodo.estado?.toUpperCase();
                     const claseEstado = estadoClases[estadoNormalizado] || "estado-inactivo";
+                    const rutaImagenNodo = nodo.image_path_nodo || nodo.image_path;
+                    const imagenNodo = rutaImagenNodo ? getAssetUrl(rutaImagenNodo) : defaultNodeImage;
                     const left = Math.min(93, Math.max(7, (Number(nodo.largo) / dimensionesSeleccionadas.largo) * 100));
                     const top = Math.min(93, Math.max(7, (Number(nodo.ancho) / dimensionesSeleccionadas.ancho) * 100));
                     return (
                       <button
                         type="button"
                         key={nodo.id}
-                        className={`home-node-marker ${claseEstado}${seleccionado ? " selected" : ""}`}
+                        className={`home-node-marker ${left < 50 ? "home-node-marker-expand-right" : "home-node-marker-expand-left"} ${claseEstado}${seleccionado ? " selected" : ""}`}
                         style={{ left: `${left}%`, top: `${top}%` }}
                         onClick={() => seleccionarNodo(nodo)}
                         aria-pressed={seleccionado}
+                        aria-label={`${nodo.nombre}. ${estadoEtiquetas[estadoNormalizado] || nodo.estado || "Estado sin dato"}. Seleccionar para ver información.`}
                         title={`${nodo.nombre} · ${estadoEtiquetas[estadoNormalizado] || nodo.estado || "Estado sin dato"} · ${nodo.zona || "Zona sin asignar"}`}
                       >
-                        <FiCpu /> {nodo.nombre}
+                        <img src={imagenNodo} alt="" aria-hidden="true" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = defaultNodeImage; }} />
+                        <span className="home-node-marker-name">{nodo.nombre}</span>
                       </button>
                     );
                   })}
                 </div>
               </div>
             </Col>
-            <Col lg={4}>
+            <Col xl={5}>
               <aside className="home-node-details" aria-live="polite">
                 {nodoSeleccionado ? (
                   <>
@@ -211,7 +217,9 @@ function Home() {
                       </div>
                     </div>
                     <dl className="home-node-details-list">
-                      <div><dt>Estado</dt><dd><span className={`estado-badge ${estadoClases[nodoSeleccionado.estado?.toUpperCase()] || "estado-inactivo"}`}>{estadoEtiquetas[nodoSeleccionado.estado?.toUpperCase()] || nodoSeleccionado.estado || "Sin dato"}</span>{nodoSeleccionado.estado?.toUpperCase() === "FALLANDO" && <small className="d-block mt-1 text-danger">Sin comunicación por más de 1 hora.</small>}</dd></div>
+                      <div><dt>Estado</dt><dd><span className={`estado-badge ${estadoClases[nodoSeleccionado.estado?.toUpperCase()] || "estado-inactivo"}`}>{estadoEtiquetas[nodoSeleccionado.estado?.toUpperCase()] || nodoSeleccionado.estado || "Sin dato"}</span></dd></div>
+                      <div><dt>Estado administrativo</dt><dd>{estadoEtiquetas[nodoSeleccionado.estado_administrativo?.toUpperCase()] || nodoSeleccionado.estado_administrativo || "Sin dato"}</dd></div>
+                      <div><dt>Comunicación</dt><dd>{({ SIN_COMUNICACION: "Sin contacto", RECIBIENDO: "Recibiendo", ATRASADO: "Atrasada" })[nodoSeleccionado.estado_comunicacion] || "Sin determinar"}{nodoSeleccionado.estado_comunicacion_fuente === "LEGACY_TELEMETRY_COMPAT" && <small className="d-block">Presencia inferida de datos heredados hasta recibir heartbeat.</small>}</dd></div>
                       <div><dt>Alimentación</dt><dd>{nodoSeleccionado.tipo_alimentacion === "CORRIENTE_DIRECTA" ? "Corriente directa" : "Batería"}</dd></div>
                       {nodoSeleccionado.tipo_alimentacion !== "CORRIENTE_DIRECTA" && <div><dt>Batería</dt><dd>{mostrarPorcentajeBateria(nodoSeleccionado.bateria_porcentaje)}</dd></div>}
                       <div><dt>Intervalo entre lecturas</dt><dd>{mostrarIntervaloConfigurado(nodoSeleccionado)}</dd></div>
@@ -238,9 +246,9 @@ function Home() {
                   </>
                 ) : (
                   <div className="home-node-details-empty">
-                    <FiMapPin aria-hidden="true" />
+                    <FiCpu aria-hidden="true" />
                     <h2>Información del nodo</h2>
-                    <p>Seleccione un nodo en el plano para consultar su estado, ubicación y últimas lecturas.</p>
+                    <p>Seleccione un círculo del plano para consultar su estado, comunicación y lecturas.</p>
                   </div>
                 )}
               </aside>
@@ -261,37 +269,44 @@ function Home() {
           )}
         </Container>
       </Container>
-      {cargando ? (
-        <p className="status-message">Cargando lecturas...</p>
-      ) : error ? (
-        <p className="status-message alert alert-danger" role="alert">
-          {error}
-        </p>
-      ) : (
-        <Container className="home-section card-component">
-          <Container className="home-content data-section">
-            <div className="home-data-title">
-              <div>
-                <h1>Datos actuales</h1>
-                <p>Promedio de las lecturas recibidas por todos los nodos durante los últimos {VENTANA_PROMEDIO_MINUTOS} minutos</p>
+      {ubicacionActual && (
+        <Container className="home-section card-component home-average-section" aria-label="Promedios de la ubicación">
+          <div className="home-average-heading">
+            <div>
+              <span>PROMEDIOS DE LA UBICACIÓN</span>
+              <h2>Últimas lecturas</h2>
+            </div>
+            <span className="home-average-count">Últimos 60 minutos · {lecturas.length} tipos</span>
+          </div>
+          {lecturas.length > 3 ? (
+            <div className="home-average-carousel">
+              <button type="button" className="home-average-arrow" onClick={() => setIndicePromedios((indice) => (indice - 1 + lecturas.length) % lecturas.length)} aria-label="Ver promedios anteriores">
+                <FiChevronLeft aria-hidden="true" />
+              </button>
+              <div className="home-average-cards" aria-live="polite">
+                {promediosVisibles.map((lectura) => (
+                  <article className="home-average-card" key={lectura.tipo_dato_id || lectura.tipo_dato}>
+                    <FiActivity aria-hidden="true" />
+                    <div><h3>{lectura.tipo_dato}</h3><strong>{lectura.promedio} <small>{lectura.unidad}</small></strong></div>
+                  </article>
+                ))}
               </div>
+              <button type="button" className="home-average-arrow" onClick={() => setIndicePromedios((indice) => (indice + 1) % lecturas.length)} aria-label="Ver siguientes promedios">
+                <FiChevronRight aria-hidden="true" />
+              </button>
             </div>
-            <div className="lecturas-section">
-              {lecturas.length ? lecturas.map((lectura) => (
-                <article
-                  className="lectura-card"
-                  key={lectura.tipo_dato_id || lectura.tipo_dato}
-                  style={{ "--metric-hue": obtenerTonoTipoDato(lectura.tipo_dato) }}
-                >
-                  <span className="lectura-label"><FiActivity className="lectura-icon" /> {lectura.tipo_dato}</span>
-                  <span className="lectura-valor">{lectura.promedio} {lectura.unidad}</span>
-                  <small className="lectura-muestras">{lectura.cantidad_lecturas} lecturas recientes</small>
+          ) : lecturas.length > 0 ? (
+            <div className="home-average-static-cards" aria-live="polite">
+              {lecturas.map((lectura) => (
+                <article className="home-average-card" key={lectura.tipo_dato_id || lectura.tipo_dato}>
+                  <FiActivity aria-hidden="true" />
+                  <div><h3>{lectura.tipo_dato}</h3><strong>{lectura.promedio} <small>{lectura.unidad}</small></strong></div>
                 </article>
-              )) : (
-                  <p className="lecturas-sin-datos">No hay lecturas recibidas</p>
-              )}
+              ))}
             </div>
-          </Container>
+          ) : (
+            <p className="home-average-empty" role="status">No hay lecturas suficientes de esta ubicación durante los últimos 60 minutos para calcular promedios.</p>
+          )}
         </Container>
       )}
       <Container className="home-section card-component home-description-section" id="home">

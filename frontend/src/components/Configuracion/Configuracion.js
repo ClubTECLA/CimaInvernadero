@@ -4,6 +4,7 @@ import Col from "react-bootstrap/Col";
 import Row from "react-bootstrap/Row";
 
 import { useAuth } from "../../context/AuthContext";
+import { useLocation } from "../../context/LocationContext";
 import { API_URL, fetchJson, getAssetUrl } from "../../utils/api";
 
 import { AiFillEdit, AiFillDelete } from "react-icons/ai";
@@ -14,13 +15,15 @@ import TiposForm from "./TiposForm";
 import UnidadForm from "./UnidadForm";
 import MapaZonas, { zonasConLimites } from "./MapaZonas";
 import { fetchAuth } from "../../utils/fetchAuth";
+import LocationSelect from "../ui/LocationSelect";
+import GatewayAdmin from "./GatewayAdmin";
 
 function Configuracion() {
   const { isAuthenticated } = useAuth();
+  const { ubicaciones, ubicacionId, recargarUbicaciones } = useLocation();
 
   const [zonas, setZonas] = useState([]);
-  const [ubicaciones, setUbicaciones] = useState([]);
-  const [ubicacionSeleccionadaId, setUbicacionSeleccionadaId] = useState(null);
+  const [ubicacionSeleccionadaId, setUbicacionSeleccionadaId] = useState(ubicacionId);
   const [tipos, setTipos] = useState([]);
   const [dato, setDato] = useState([]);
   const [zonaSeleccionadaId, setZonaSeleccionadaId] = useState(null);
@@ -43,14 +46,11 @@ function Configuracion() {
     const controller = new AbortController();
 
     Promise.all([
-      fetchJson(`${API_URL}/api/catalogos/ubicaciones`, { signal: controller.signal }),
       fetchJson(`${API_URL}/api/catalogos/zonas`, { signal: controller.signal }),
       fetchJson(`${API_URL}/api/catalogos/tipos-dispositivo`, { signal: controller.signal }),
       fetchJson(`${API_URL}/api/catalogos/tipos-dato`, { signal: controller.signal }),
     ])
-      .then(([ubicacionesDatos, zonasDatos, tiposDatos, tiposDatoDatos]) => {
-        setUbicaciones(ubicacionesDatos);
-        if (ubicacionesDatos.length && !ubicacionesDatos.some((item) => Number(item.id) === Number(ubicacionSeleccionadaId))) setUbicacionSeleccionadaId(ubicacionesDatos[0].id);
+      .then(([zonasDatos, tiposDatos, tiposDatoDatos]) => {
         setZonas(zonasDatos);
         setTipos(tiposDatos);
         setDato(tiposDatoDatos);
@@ -61,17 +61,27 @@ function Configuracion() {
       });
 
     return () => controller.abort();
-  }, [ubicacionSeleccionadaId]);
+    }, []);
 
-  function refresh(ruta) {
+  useEffect(() => {
+    if (ubicacionId && String(ubicacionSeleccionadaId) !== String(ubicacionId)) setUbicacionSeleccionadaId(ubicacionId);
+  }, [ubicacionId, ubicacionSeleccionadaId]);
+
+  async function refresh(ruta) {
+    if (ruta === "ubicaciones") {
+      try {
+        await recargarUbicaciones();
+        setError(null);
+      } catch (err) {
+        setError(err.message || "No fue posible actualizar el catálogo");
+      }
+      return;
+    }
+
     fetchJson(`${API_URL}/api/catalogos/${ruta}`)
       .then((datos) => {
         setError(null);
         switch (ruta) {
-          case "ubicaciones":
-            setUbicaciones(datos);
-            if (datos.length && !datos.some((item) => Number(item.id) === Number(ubicacionSeleccionadaId))) setUbicacionSeleccionadaId(datos[0].id);
-            break;
           case "zonas":
             setZonas(datos);
             break;
@@ -130,9 +140,12 @@ function Configuracion() {
             <Container className="single-display card-component" id="ubicaciones">
               <div className="single-display-title"><h2>Ubicaciones</h2>{isAuthenticated && <button className="single-display-add" onClick={() => setMostrarUbicacion(true)} aria-label="Agregar ubicación">+</button>}</div>
               <div className="catalogos-location-toolbar">
-                <select className="form-select" value={ubicacionSeleccionada?.id || ""} onChange={(e) => setUbicacionSeleccionadaId(e.target.value)} aria-label="Ubicación seleccionada">
-                  {ubicaciones.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
-                </select>
+                <LocationSelect
+                  id="configuracion-ubicacion"
+                  value={ubicacionSeleccionada?.id || ""}
+                  onChange={(value) => setUbicacionSeleccionadaId(value)}
+                  label="Ubicación seleccionada"
+                />
                 {ubicacionSeleccionada && isAuthenticated && <div className="single-display-buttons"><button className="single-display-edit" aria-label={`Editar ${ubicacionSeleccionada.nombre}`} onClick={() => { setEditarUbicacion(ubicacionSeleccionada); setMostrarUbicacion(true); }}><AiFillEdit /></button><button className="single-display-delete" aria-label={`Eliminar ${ubicacionSeleccionada.nombre}`} onClick={() => handleEliminar(ubicacionSeleccionada.id, ubicacionSeleccionada.nombre, "ubicaciones")}><AiFillDelete /></button></div>}
               </div>
               {ubicacionSeleccionada && <div className="catalogos-location-content"><div className="catalogos-location-details"><span className="catalogos-location-id">ID {ubicacionSeleccionada.id}</span><p className="catalogos-location-description">{ubicacionSeleccionada.descripcion || "Sin descripción"}</p><div className="catalogos-location-measures"><span><strong>Largo</strong>{Number(ubicacionSeleccionada.largo).toFixed(2)} m</span><span><strong>Ancho</strong>{Number(ubicacionSeleccionada.ancho).toFixed(2)} m</span><span><strong>Altura</strong>{Number(ubicacionSeleccionada.altura).toFixed(2)} m</span></div></div><div className="catalogos-location-image-wrap">{ubicacionSeleccionada.image_path ? <img className="catalogos-location-image" src={getAssetUrl(ubicacionSeleccionada.image_path)} alt={`Imagen de ${ubicacionSeleccionada.nombre}`} /> : <div className="catalogos-location-image catalogos-location-image-placeholder" role="img" aria-label={`Sin imagen de ${ubicacionSeleccionada.nombre}`}><span>Sin imagen registrada</span></div>}{!ubicacionSeleccionada.image_path && <small>Agregue una imagen desde editar ubicación.</small>}</div></div>}
@@ -293,6 +306,7 @@ function Configuracion() {
                 ))}
               </div>
             </Container>
+            {isAuthenticated && <GatewayAdmin />}
           </Col>
         </Row>
       </Container>

@@ -8,3 +8,6 @@
 @import "./styles/configuracion.css";
 @import "./styles/footer.css";
 @import "./styles/theme.css";
+@import "./styles/ui-system.css";
+@import "./styles/sidebar-layout.css";
+@import "./styles/nodes-workspace.css";

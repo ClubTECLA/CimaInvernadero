@@ -52,27 +52,33 @@ function Login() {
         <h2>Iniciar sesión</h2>
         <p>Inicie sesión para administrar este sitio</p>
 
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && <div className="alert alert-danger" role="alert">{error}</div>}
 
         <div className="form-group mb-3">
-          <label className="form-label fw-bold">Usuario</label>
+          <label className="form-label fw-bold" htmlFor="login-usuario">Usuario</label>
           <input
+            id="login-usuario"
             type="text"
             className="form-control"
             value={usuario}
             onChange={(e) => setUsuario(e.target.value)}
             placeholder="admin"
+            autoComplete="username"
+            required
           />
         </div>
 
         <div className="form-group mb-3">
-          <label className="form-label fw-bold">Contraseña</label>
+          <label className="form-label fw-bold" htmlFor="login-password">Contraseña</label>
           <input
+            id="login-password"
             type="password"
             className="form-control"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+            autoComplete="current-password"
+            required
           />
         </div>
 

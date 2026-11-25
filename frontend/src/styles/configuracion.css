@@ -180,6 +180,12 @@
   justify-content: space-between;
 }
 
+/* Mantén aire entre el encabezado de los catálogos y sus tarjetas o tabla. */
+#dispositivos > .single-display-title,
+#datos > .single-display-title {
+  margin-bottom: 0.85rem;
+}
+
 .single-display-config {
   display: flex;
   flex-wrap: wrap;

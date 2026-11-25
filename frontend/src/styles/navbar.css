@@ -14,7 +14,9 @@
   color: white;
   align-items: center;
   left: 0 !important;
-  width: 100vw !important;
+  width: 100% !important;
+  right: 0;
+  z-index: 1030;
 }
 
 .navbar-toggler {
@@ -115,7 +117,7 @@
 
 .navbar-nav .nav-item {
   position: relative;
-  margin-left: 20px;
+  margin-left: 0.4rem;
 }
 
 .navbar-nav .nav-item a {
@@ -127,32 +129,7 @@
   align-items: center;
 }
 
-.navbar-nav .nav-item a::after,
-.navbar-nav .nav-item a::before {
-  content: "";
-  position: absolute;
-  height: 3px;
-  width: 100%;
-  border-radius: 16px;
-  background-color: var(--verde-secundario);
-  bottom: 8px;
-  left: 0;
-  transform: scaleX(0);
-  transform-origin: right;
-  transition: transform 0.4s ease-out;
-}
-
-.navbar-nav .nav-item a::before {
-  top: 8px;
-  transform-origin: left;
-}
-
-.navbar-nav .nav-item a:hover::after,
-.navbar-nav .nav-item a:hover::before {
-  transform: scaleX(1);
-}
-
-/* La ruta actual permanece resaltada; las líneas quedan como efecto hover. */
+/* La ruta actual se distingue por superficie y peso tipográfico, sin subrayados decorativos. */
 .navbar-nav .nav-link.active {
   color: #fff !important;
   background: rgba(255, 255, 255, 0.18);
@@ -160,13 +137,8 @@
   font-weight: 700;
 }
 
-.navbar-nav .nav-link.active::after {
-  transform: scaleX(0.58);
-  transform-origin: center;
-  background-color: #c8f7a5;
-}
-
-.navbar-nav .nav-link.active::before { display: none; }
+.navbar-nav .nav-link::before,
+.navbar-nav .nav-link::after { display: none !important; }
 .nav-icon { margin: 0 0.3rem 0 0; font-size: 1.5em; }
 .nav-icon-small { font-size: 1.35em; }
 

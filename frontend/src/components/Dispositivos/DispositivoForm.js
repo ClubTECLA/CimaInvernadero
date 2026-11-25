@@ -478,9 +478,10 @@ function DispositivosForm({ show, onHide, onGuardado, dispositivo }) {
                   </select>
                   <select className="form-select" value={item.estado} onChange={(e) => actualizarComponente(item, { estado: e.target.value })} aria-label={`Estado de ${item.tipo || item.nombre}`}>
                     {item.estado === "FALLANDO" && <option value="FALLANDO" disabled>Problemas o fallas (automático)</option>}
+                    {item.estado === "RETIRADO" && <option value="RETIRADO">Retirado (historial conservado)</option>}
                     {estadoOpciones.map((opcion) => <option key={opcion.value} value={opcion.value}>{opcion.label}</option>)}
                   </select>
-                  <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => eliminarComponente(item)} aria-label={`Quitar ${item.tipo || item.nombre}`}>Quitar</button>
+                  {item.categoria === "SENSOR" && item.estado !== "RETIRADO" ? <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => eliminarComponente(item)} aria-label={`Retirar ${item.tipo || item.nombre}`}>Retirar</button> : item.categoria !== "SENSOR" ? <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => eliminarComponente(item)} aria-label={`Quitar ${item.tipo || item.nombre}`}>Quitar</button> : null}
                 </div>
               ))}
               {!componentes.length && <small className="text-muted">Aún no hay componentes asignados.</small>}

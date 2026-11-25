@@ -8,6 +8,8 @@ import { lazy, Suspense } from "react";
 import "./style.css";
 import { AuthProvider } from "./context/AuthContext";
 import { SiteDimensionsProvider } from "./context/SiteDimensionsContext";
+import { LocationProvider } from "./context/LocationContext";
+import AppErrorBoundary from "./components/AppErrorBoundary";
 
 const Login = lazy(() => import("./components/Login/Login"));
 const Home = lazy(() => import("./components/Inicio/Home"));
@@ -22,6 +24,7 @@ const Control = lazy(() => import("./components/Control/Control"));
 
 function App() {
   const [load, updateLoad] = useState(true);
+  const modoDemoLocal = process.env.REACT_APP_LOCAL_TEST_MODE === "true";
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -32,27 +35,36 @@ function App() {
 
   return (
     <AuthProvider>
-      <SiteDimensionsProvider>
+      <LocationProvider>
+       <SiteDimensionsProvider>
        <Router>
         <Preloader load={load} />
         <div className="App" id={load ? "no-scroll" : "scroll"}>
           <NavBar />
+          {modoDemoLocal && (
+            <div role="status" className="local-demo-banner">
+              DEMO LOCAL: nodos, estados y lecturas usan datos sintéticos; no provienen de sensores conectados.
+            </div>
+          )}
           <div className="app-content">
-            <Suspense fallback={<div>Cargando...</div>}>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/" element={<Home />} />
-                <Route path="/datos" element={<Datos />} />
-                <Route path="/dispositivos" element={<Dispositivos />} />
-                <Route path="/control" element={<Control />} />
-                <Route path="/configuracion" element={<Configuracion />} />
-              </Routes>
-            </Suspense>
+            <AppErrorBoundary>
+              <Suspense fallback={<div className="app-loading" role="status">Cargando pantalla…</div>}>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/" element={<Home />} />
+                  <Route path="/datos" element={<Datos />} />
+                  <Route path="/dispositivos" element={<Dispositivos />} />
+                  <Route path="/control" element={<Control />} />
+                  <Route path="/configuracion" element={<Configuracion />} />
+                </Routes>
+              </Suspense>
+            </AppErrorBoundary>
           </div>
           <Footer />
         </div>
        </Router>
-      </SiteDimensionsProvider>
+       </SiteDimensionsProvider>
+      </LocationProvider>
     </AuthProvider>
   );
 }
