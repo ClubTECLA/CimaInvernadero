@@ -7,8 +7,10 @@ import { API_URL } from "../../utils/api";
 import { fetchAuth } from "../../utils/fetchAuth";
 import { mostrarIntervaloLectura } from "../../utils/dispositivoFormatters";
 import { useAuth } from "../../context/AuthContext";
+import { useLocation } from "../../context/LocationContext";
+import LocationSelect from "../ui/LocationSelect";
 
-const INTERVALOS_PARA_MARCAR_SIN_CONEXION = 3;
+const INTERVALOS_PARA_MARCAR_SIN_CONEXION = 1;
 
 async function leerRespuesta(respuesta, mensaje) {
   const datos = await respuesta.json().catch(() => null);
@@ -26,6 +28,13 @@ function tiempoDesdeReporte(segundos) {
 }
 
 function obtenerEstadoComunicacion(nodo, ahora) {
+  if (nodo.estado_comunicacion === "ATRASADO") {
+    const fecha = nodo.ultima_comunicacion ? new Date(nodo.ultima_comunicacion).getTime() : NaN;
+    const segundos = Number.isFinite(fecha) ? Math.max(0, (ahora - fecha) / 1000) : 0;
+    const margen = Number(nodo.heartbeat_grace_seconds) || 120;
+    const plazo = Number(nodo.management_poll_interval_seconds || 600) * INTERVALOS_PARA_MARCAR_SIN_CONEXION + margen;
+    return { clase: "sin-conexion", etiqueta: "Nodo sin conexión", detalle: `No se reciben heartbeats desde ${tiempoDesdeReporte(segundos)}. El plazo es ${mostrarIntervaloLectura(plazo)}; esto no cambia el estado administrativo del nodo ni detiene su control autónomo.` };
+  }
   if (!nodo.ultima_comunicacion) {
     return {
       clase: "sin-reporte",
@@ -39,7 +48,7 @@ function obtenerEstadoComunicacion(nodo, ahora) {
     return { clase: "indeterminado", etiqueta: "Conexión sin determinar", detalle: "No se pudo interpretar la fecha del último reporte." };
   }
 
-  const intervalo = Number(nodo.intervalo_lectura_segundos || nodo.intervalo_calculado_segundos);
+  const intervalo = Number(nodo.management_poll_interval_seconds || nodo.intervalo_lectura_segundos || nodo.intervalo_calculado_segundos);
   if (!Number.isFinite(intervalo) || intervalo <= 0) {
     return {
       clase: "indeterminado",
@@ -49,7 +58,7 @@ function obtenerEstadoComunicacion(nodo, ahora) {
   }
 
   const segundosSinReporte = Math.max(0, (ahora - fechaReporte) / 1000);
-  const umbral = intervalo * INTERVALOS_PARA_MARCAR_SIN_CONEXION;
+  const umbral = intervalo * INTERVALOS_PARA_MARCAR_SIN_CONEXION + (Number(nodo.heartbeat_grace_seconds) || 120);
   const sinConexion = segundosSinReporte >= umbral;
   const tiempo = tiempoDesdeReporte(segundosSinReporte);
   const plazo = mostrarIntervaloLectura(umbral);
@@ -68,9 +77,9 @@ function obtenerEstadoComunicacion(nodo, ahora) {
 
 function Control() {
   const { isAuthenticated } = useAuth();
+  const { ubicacionId } = useLocation();
   const [nodos, setNodos] = useState([]);
-  const [ubicaciones, setUbicaciones] = useState([]);
-  const [filtroUbicacion, setFiltroUbicacion] = useState("1");
+  const [filtroUbicacion, setFiltroUbicacion] = useState(ubicacionId);
   const [tiposDispositivo, setTiposDispositivo] = useState([]);
   const [tiposDato, setTiposDato] = useState([]);
   const [componentesPorNodo, setComponentesPorNodo] = useState({});
@@ -97,16 +106,14 @@ function Control() {
     setCargando(true);
     setError("");
     try {
-      const [nodosRespuesta, tiposRespuesta, tiposDatoRespuesta, ubicacionesRespuesta] = await Promise.all([
+      const [nodosRespuesta, tiposRespuesta, tiposDatoRespuesta] = await Promise.all([
         fetch(`${API_URL}/api/dispositivos`),
         fetch(`${API_URL}/api/catalogos/tipos-dispositivo`),
         fetch(`${API_URL}/api/catalogos/tipos-dato`),
-        fetch(`${API_URL}/api/catalogos/ubicaciones`),
       ]);
       const listaNodos = await leerRespuesta(nodosRespuesta, "No fue posible cargar los nodos");
       const listaTipos = await leerRespuesta(tiposRespuesta, "No fue posible cargar los tipos");
       const listaTiposDato = await leerRespuesta(tiposDatoRespuesta, "No fue posible cargar los tipos de dato");
-      const listaUbicaciones = await leerRespuesta(ubicacionesRespuesta, "No fue posible cargar las ubicaciones");
       const mapa = {};
       await Promise.all(listaNodos.map(async (nodo) => {
         const respuesta = await fetch(`${API_URL}/api/dispositivos/nodos/${nodo.id}/componentes`);
@@ -121,10 +128,6 @@ function Control() {
         reglas[actuador.id] = await leerRespuesta(respuesta, `No fue posible cargar las reglas de ${actuador.tipo || actuador.nombre}`);
       }));
       setNodos(listaNodos);
-      setUbicaciones(listaUbicaciones);
-      setFiltroUbicacion((actual) => listaUbicaciones.some((ubicacion) => String(ubicacion.id) === String(actual))
-        ? actual
-        : String(listaUbicaciones[0]?.id || ""));
       setTiposDispositivo(listaTipos);
       setTiposDato(listaTiposDato);
       setComponentesPorNodo(mapa);
@@ -137,6 +140,10 @@ function Control() {
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (ubicacionId && String(filtroUbicacion) !== String(ubicacionId)) setFiltroUbicacion(ubicacionId);
+  }, [ubicacionId, filtroUbicacion]);
 
   async function quitarActuador(actuador, nodo) {
     if (!window.confirm(`¿Quitar ${actuador.tipo || actuador.nombre} de ${nodo.nombre}?`)) return;
@@ -158,7 +165,7 @@ function Control() {
           <div>
             <h1>Control automático</h1>
             <p>Para que aparezca una tarea automática, primero registre el actuador en un nodo y después, configure aquí su regla.</p>
-            <p className="control-connectivity-note"><strong>Importante:</strong> El actuador ejecuta su tarea de forma autónoma en el nodo. Si pasan tres intervalos de lectura sin recibir datos, se mostrará «Nodo sin conexión»; esto no significa que la tarea esté pausada ni que el actuador se haya detenido. La plataforma no podrá confirmar su estado actual hasta recibir otro reporte.</p>
+            <p className="control-connectivity-note"><strong>Importante:</strong> La conectividad se calcula con el último heartbeat y la cadencia de gestión del nodo. Si vence esa ventana, se mostrará «Nodo sin conexión»; esto no cambia el estado administrativo ni confirma que un actuador físico se haya detenido. La plataforma no podrá confirmar su estado hasta recibir otro heartbeat.</p>
           </div>
         </div>
 
@@ -169,10 +176,7 @@ function Control() {
           <div className="section-heading">
             <h2>Asignados a nodos</h2>
             <div className="d-flex align-items-center gap-2">
-              <label htmlFor="actuator-location-filter" className="visually-hidden">Ubicación</label>
-              <select id="actuator-location-filter" className="device-status-filter" value={filtroUbicacion} onChange={(event) => setFiltroUbicacion(event.target.value)}>
-                {ubicaciones.map((ubicacion) => <option key={ubicacion.id} value={ubicacion.id}>{ubicacion.nombre}</option>)}
-              </select>
+              <LocationSelect id="actuator-location-filter" value={filtroUbicacion} onChange={setFiltroUbicacion} label="Ubicación" labelClassName="visually-hidden" className="device-location-select" />
               <span className="sensor-count">{actuadores.length}</span>
             </div>
           </div>
