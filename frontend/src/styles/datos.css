@@ -35,7 +35,7 @@
 
 .filter-fields-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem 1rem;
   margin-right: 0;
   margin-left: 0;
@@ -46,6 +46,28 @@
   min-width: 0;
   padding-right: 0;
   padding-left: 0;
+}
+
+.filter-fields-row > .filter-date-time {
+  grid-column: span 2;
+}
+
+.filter-fields-row > .filter > label,
+.filter-fields-row > .filter > .location-select-control > label {
+  min-height: 1rem;
+  margin: 0;
+  line-height: 1rem;
+}
+
+.filter-fields-row > .filter > .location-select-control {
+  width: 100%;
+  min-width: 0;
+}
+
+.filter-fields-row > .filter > .location-select-control > label svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: 0 0 auto;
 }
 
 .filter-reset-button {
@@ -86,8 +108,82 @@
   line-height: 1.4;
 }
 
-.filter input[type="datetime-local"] {
+.filter-datetime-24 {
+  position: relative;
+  display: flex;
+  width: 100%;
   min-width: 0;
+  align-items: center;
+  border: 1px solid var(--theme-border, #dce9df);
+  border-radius: 0.5rem;
+  background: var(--theme-surface, transparent);
+  overflow: hidden;
+}
+
+.filter-datetime-24 > input[type="text"] {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.2rem;
+  padding: 0.35rem 2.6rem 0.35rem 0.65rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--theme-text, #183c30);
+  box-shadow: none;
+}
+
+.filter-datetime-24:focus-within {
+  border-color: #65a981;
+  box-shadow: 0 0 0 2px rgb(69 153 103 / 22%);
+  outline: none;
+}
+
+:root[data-theme="dark"] .filter-datetime-24:focus-within {
+  border-color: #75c991;
+  box-shadow: 0 0 0 2px rgb(117 201 145 / 24%);
+}
+
+.filter-datetime-24__calendar {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  display: grid;
+  width: 2.35rem;
+  height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--theme-muted, #557166);
+  cursor: pointer;
+}
+
+.filter-datetime-24__native {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.25rem;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.filter-datetime-24 .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 1024px) {
@@ -107,7 +203,7 @@
   .filter-fields-row {
     grid-template-columns: minmax(0, 1fr);
   }
-
+  .filter-fields-row > .filter-date-time { grid-column: span 1; }
 }
 
 .filter select {

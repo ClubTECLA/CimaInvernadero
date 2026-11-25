@@ -1,14 +1,23 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Table from "react-bootstrap/Table";
 
 import { API_URL, fetchJson } from "../../utils/api";
+import { useLocation } from "../../context/LocationContext";
+import LocationSelect from "../ui/LocationSelect";
+import DateTime24Input from "./DateTime24Input";
+import GraficaLecturas from "./GraficasLecturas";
 
 import { CiExport } from "react-icons/ci";
 
 const comparadorEspanol = new Intl.Collator("es", { sensitivity: "base", numeric: true });
+
+function fechaHoraLocal(valor) {
+  const fecha = new Date(valor.getTime() - valor.getTimezoneOffset() * 60_000);
+  return fecha.toISOString().slice(0, 16);
+}
 
 function ordenarPorNombre(elementos, campo) {
   return [...elementos].sort((a, b) => comparadorEspanol.compare(a[campo] || "", b[campo] || ""));
@@ -22,25 +31,32 @@ function fechaHoraParaApi(valor, esFechaFinal = false) {
 }
 
 function Datos() {
+  const { ubicacionId } = useLocation();
   const [lecturas, setLecturas] = useState([]);
   const [dispositivos, setDispositivos] = useState([]);
   const [tiposDato, setTiposDato] = useState([]);
   const [zonas, setZonas] = useState([]);
-  const [ubicaciones, setUbicaciones] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [cargandoFiltros, setCargandoFiltros] = useState(true);
+  const [filtrosCargados, setFiltrosCargados] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [error, setError] = useState(null);
+  const [errorFiltros, setErrorFiltros] = useState(null);
   const [pagina, setPagina] = useState(1);
   const [filasPorPagina, setFilasPorPagina] = useState(10);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [totalRegistros, setTotalRegistros] = useState(0);
+  const [lecturasGrafica, setLecturasGrafica] = useState([]);
+  const [reintentoLecturas, setReintentoLecturas] = useState(0);
 
   const [filtroDispositivo, setFiltroDispositivo] = useState("");
   const [filtroTipoDato, setFiltroTipoDato] = useState("");
   const [filtroZona, setFiltroZona] = useState("");
-  const [filtroUbicacion, setFiltroUbicacion] = useState("1");
-  const [filtroFechaInicio, setFiltroFechaInicio] = useState("");
-  const [filtroFechaFin, setFiltroFechaFin] = useState("");
+  const [filtroUbicacion, setFiltroUbicacion] = useState(ubicacionId);
+  const [filtroFechaFin, setFiltroFechaFin] = useState(() => fechaHoraLocal(new Date()));
+  const [filtroFechaInicio, setFiltroFechaInicio] = useState(() => {
+    return fechaHoraLocal(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  });
   const hayFiltros = Boolean(
     filtroDispositivo ||
       filtroTipoDato ||
@@ -52,38 +68,41 @@ function Datos() {
   const idsZonasDeUbicacion = new Set(zonasDeUbicacion.map((zona) => String(zona.id)));
   const dispositivosDeUbicacion = dispositivos.filter((dispositivo) => !filtroUbicacion || idsZonasDeUbicacion.has(String(dispositivo.zona_id)));
 
+  const cargarFiltros = useCallback(async (signal) => {
+    setCargandoFiltros(true);
+    setFiltrosCargados(false);
+    setErrorFiltros(null);
+    try {
+      const [datosDispositivos, datosTipos, datosZonas] = await Promise.all([
+        fetchJson(`${API_URL}/api/dispositivos`, { signal }),
+        fetchJson(`${API_URL}/api/catalogos/tipos-dato`, { signal }),
+        fetchJson(`${API_URL}/api/catalogos/zonas`, { signal }),
+      ]);
+      if (signal?.aborted) return;
+      setDispositivos(datosDispositivos);
+      setTiposDato(datosTipos);
+      setZonas(datosZonas);
+      setFiltrosCargados(true);
+    } catch (err) {
+      if (err.name !== "AbortError") setErrorFiltros("No fue posible cargar los filtros. Puede intentarlo de nuevo.");
+    } finally {
+      if (!signal?.aborted) setCargandoFiltros(false);
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-
-    Promise.all([
-      fetchJson(`${API_URL}/api/dispositivos`, {
-        signal: controller.signal,
-      }),
-      fetchJson(`${API_URL}/api/catalogos/tipos-dato`, {
-        signal: controller.signal,
-      }),
-      fetchJson(`${API_URL}/api/catalogos/zonas`, {
-        signal: controller.signal,
-      }),
-      fetchJson(`${API_URL}/api/catalogos/ubicaciones`, {
-        signal: controller.signal,
-      }),
-    ])
-      .then(([datosDispositivos, datosTipos, datosZonas, datosUbicaciones]) => {
-        setDispositivos(datosDispositivos);
-        setTiposDato(datosTipos);
-        setZonas(datosZonas);
-        setUbicaciones(datosUbicaciones);
-        if (datosUbicaciones.length) setFiltroUbicacion((actual) => datosUbicaciones.some((item) => String(item.id) === String(actual)) ? actual : String(datosUbicaciones[0].id));
-      })
-      .catch((err) => {
-        if (err.name !== "AbortError") {
-          setError("No fue posible cargar los filtros");
-        }
-      });
-
+    cargarFiltros(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [cargarFiltros]);
+
+  useEffect(() => {
+    if (ubicacionId && String(filtroUbicacion) !== String(ubicacionId)) {
+      setFiltroUbicacion(ubicacionId);
+      setFiltroZona("");
+      setFiltroDispositivo("");
+    }
+  }, [ubicacionId, filtroUbicacion]);
 
   useEffect(() => {
     setPagina(1);
@@ -99,6 +118,7 @@ function Datos() {
   useEffect(() => {
     setCargando(true);
     setError(null);
+    setLecturasGrafica([]);
     const controller = new AbortController();
 
     const timer = setTimeout(async () => {
@@ -120,9 +140,22 @@ function Datos() {
         setLecturas(datos.datos);
         setTotalPaginas(datos.total_paginas);
         setTotalRegistros(Number(datos.total) || 0);
+        const paramsGrafica = new URLSearchParams(params);
+        paramsGrafica.set("page", "1");
+        paramsGrafica.set("limit", "100");
+        try {
+          const datosGrafica = await fetchJson(
+            `${API_URL}/api/lecturas?${paramsGrafica.toString()}`,
+            { signal: controller.signal },
+          );
+          if (!controller.signal.aborted) setLecturasGrafica(datosGrafica.datos || []);
+        } catch (errorGrafica) {
+          if (errorGrafica.name !== "AbortError") setLecturasGrafica([]);
+        }
       } catch (err) {
         if (err.name !== "AbortError") {
           setLecturas([]);
+          setLecturasGrafica([]);
           setError(err.message || "No fue posible cargar las lecturas");
         }
       } finally {
@@ -143,6 +176,7 @@ function Datos() {
     filtroUbicacion,
     pagina,
     filasPorPagina,
+    reintentoLecturas,
   ]);
 
   function reiniciarFiltros() {
@@ -245,7 +279,18 @@ function Datos() {
           </Row>
         </Container>
 
-        <Container className="filter-section data-page-section card-component">
+        {cargandoFiltros && (
+          <div className="status-message" role="status">Cargando filtros de búsqueda…</div>
+        )}
+        {errorFiltros && (
+          <div className="alert alert-danger filter-load-error" role="alert">
+            <span>{errorFiltros}</span>
+            <button type="button" className="btn btn-outline-success btn-sm" onClick={() => cargarFiltros()}>
+              Reintentar
+            </button>
+          </div>
+        )}
+        {filtrosCargados && <Container className="filter-section data-page-section card-component">
           <div className="filter-section-title">
             <h2>Filtros de búsqueda</h2>
             {hayFiltros && (
@@ -254,10 +299,7 @@ function Datos() {
           </div>
           <Row className="filter-fields-row">
             <Col className="filter">
-              <label htmlFor="ubicacion">Ubicación</label>
-              <select id="ubicacion" onChange={(e) => { setFiltroUbicacion(e.target.value); setFiltroZona(""); }} value={filtroUbicacion}>
-                {ubicaciones.map((ubicacion) => <option key={ubicacion.id} value={ubicacion.id}>{ubicacion.nombre}</option>)}
-              </select>
+              <LocationSelect id="ubicacion" value={filtroUbicacion} onChange={(value) => { setFiltroUbicacion(value); setFiltroZona(""); }} label="Ubicación" />
             </Col>
             <Col className="filter">
               <label htmlFor="dispositivo">Nodo</label>
@@ -304,30 +346,30 @@ function Datos() {
                 ))}
               </select>
             </Col>
-            <Col className="filter">
+            <Col className="filter filter-date-time">
               <label htmlFor="fecha_inicio">Fecha y hora inicial</label>
-              <input
-                type="datetime-local"
-                step="60"
+              <DateTime24Input
                 id="fecha_inicio"
-                onChange={(e) => setFiltroFechaInicio(e.target.value)}
+                label="Fecha y hora inicial"
+                onChange={setFiltroFechaInicio}
                 value={filtroFechaInicio}
-                max={filtroFechaFin || undefined}
+                maxValue={filtroFechaFin}
               />
             </Col>
-            <Col className="filter">
+            <Col className="filter filter-date-time">
               <label htmlFor="fecha_fin">Fecha y hora final</label>
-              <input
-                type="datetime-local"
-                step="60"
+              <DateTime24Input
                 id="fecha_fin"
-                onChange={(e) => setFiltroFechaFin(e.target.value)}
+                label="Fecha y hora final"
+                onChange={setFiltroFechaFin}
                 value={filtroFechaFin}
-                min={filtroFechaInicio || undefined}
+                minValue={filtroFechaInicio}
               />
             </Col>
           </Row>
-        </Container>
+        </Container>}
+
+        {!cargando && !error && <GraficaLecturas lecturas={lecturasGrafica} />}
 
         {/* TABLA*/}
         <Container className="all-section data-page-section card-component">
@@ -376,8 +418,13 @@ function Datos() {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={5} className="text-center text-danger">
-                      {error}
+                    <td colSpan={5}>
+                      <div className="table-error-state" role="alert">
+                        <span>{error}</span>
+                        <button type="button" className="btn btn-outline-success btn-sm" onClick={() => setReintentoLecturas((actual) => actual + 1)}>
+                          Reintentar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ) : lecturas.length === 0 ? (
